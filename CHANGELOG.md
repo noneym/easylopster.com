@@ -7,6 +7,12 @@ All notable changes to easylopster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Import from OpenClaw (bot page → Import): pick the OpenClaw workspace folder in the browser, see
+  what is importable grouped as persona, memory, heartbeat, skills and scripts (media, .git, trash
+  and large files are skipped before upload), choose append or replace for MEMORY.md, optionally
+  create a "Proactive check" automation that follows HEARTBEAT.md. Persona files are mirrored into
+  settings and BOOTSTRAP.md is removed so the imported bot skips the first-run interview. TOOLS.md
+  is now loaded as workspace context like AGENTS.md and IDENTITY.md.
 - "Test this model" next to the model picker (bot settings and API key page): one tiny prompt
   through the gateway shows the latency and reply, or the provider's error / a 25 s timeout, so
   broken models on a provider are caught before a bot is pointed at them.

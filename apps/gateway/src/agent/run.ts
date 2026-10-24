@@ -108,7 +108,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   }
   if (recentNotes.length) bootstrap.push(["memory (recent)", recentNotes.join("\n\n")]);
   for (const name of BOOTSTRAP_FILES) {
-    if (name === "AGENTS.md" || name === "IDENTITY.md") {
+    if (name === "AGENTS.md" || name === "IDENTITY.md" || name === "TOOLS.md") {
       const extra = await ws.readOptional(name);
       if (extra) bootstrap.push([name, extra]);
     }

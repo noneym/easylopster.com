@@ -15,7 +15,7 @@ export function queuePrefix(): string {
   return process.env.QUEUE_PREFIX || "bull";
 }
 
-export const BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"] as const;
+export const BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "IDENTITY.md", "USER.md", "TOOLS.md", "MEMORY.md"] as const;
 export const BOOTSTRAP_MAX_CHARS_PER_FILE = 20_000;
 export const BOOTSTRAP_MAX_CHARS_TOTAL = 60_000;
 
