@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+dist
+.next
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage
+.turbo
+/data
+packages/db/generated
+apps/gateway/dist
+packages/node-agent/dist

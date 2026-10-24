@@ -1,0 +1,23 @@
+{
+  "name": "easylopster",
+  "private": true,
+  "packageManager": "pnpm@10.34.8",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "dev:web": "pnpm --filter @easylopster/web dev",
+    "dev:gateway": "pnpm --filter @easylopster/gateway dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @easylopster/db generate",
+    "db:migrate": "pnpm --filter @easylopster/db migrate",
+    "db:deploy": "pnpm --filter @easylopster/db deploy",
+    "db:studio": "pnpm --filter @easylopster/db studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/engines", "argon2", "esbuild", "msgpackr-extract", "prisma", "unrs-resolver", "sharp"]
+  }
+}

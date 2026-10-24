@@ -1,0 +1,325 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ───────────────────────────── Accounts ─────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  passwordHash    String
+  role            String    @default("user") // user | admin
+  emailVerifiedAt DateTime?
+  timezone        String    @default("UTC")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions     Session[]
+  providerKeys ProviderKey[]
+  bots         Bot[]
+  mcpServers   McpServer[]
+  nodes        Node[]
+  usage        UsageDaily[]
+  emailTokens  EmailToken[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?  @db.VarChar(512)
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Email verification / password reset tokens (hashed).
+model EmailToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // verify | reset
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, kind])
+}
+
+// ───────────────────────────── LLM provider keys ─────────────────────────────
+
+model ProviderKey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String // anthropic | openai | openrouter | deepseek | google | openai-compatible
+  label        String
+  encKey       String    @db.Text
+  keyLast4     String
+  baseUrl      String? // openai-compatible / overrides
+  defaultModel String
+  lastTestedAt DateTime?
+  lastTestOk   Boolean?
+  lastTestMsg  String?   @db.VarChar(512)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bots Bot[]
+
+  @@index([userId])
+}
+
+// ───────────────────────────── Bots (channels) ─────────────────────────────
+
+model Bot {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform String @default("telegram") // telegram (more later)
+  name     String
+  status   String @default("active") // active | paused | error
+
+  // Telegram
+  encToken      String  @db.Text
+  tgBotId       String? // numeric id from getMe, as string
+  tgUsername    String?
+  webhookSecret String // random path segment + X-Telegram-Bot-Api-Secret-Token
+  webhookSetAt  DateTime?
+  lastError     String? @db.VarChar(1024)
+
+  // Model
+  providerKeyId String?
+  providerKey   ProviderKey? @relation(fields: [providerKeyId], references: [id], onDelete: SetNull)
+  model         String?
+  thinking      String       @default("off") // off | low | medium | high
+  temperature   Float?
+
+  // Persona / instructions. SOUL/USER/MEMORY also live in the cloud workspace as files; these
+  // columns are the dashboard-editable sources that get written to the workspace on save.
+  systemPrompt String? @db.Text
+
+  // Access policy
+  dmPolicy       String @default("pairing") // pairing | allowlist | open | disabled
+  groupPolicy    String @default("allowlist") // allowlist | open | disabled
+  requireMention Boolean @default(true)
+  streaming      String  @default("partial") // off | partial | block | progress
+  replyToMode    String  @default("first") // off | first | all
+
+  // Tool policy: { builtin: {...}, fs: "cloud"|"node:<id>"|"off", exec: "off"|"sandbox"|"node:<id>", execApproval: "always"|"never" }
+  toolPolicy Json?
+
+  // Where this bot's workspace lives: cloud | node
+  workspaceMode   String  @default("cloud")
+  workspaceNodeId String?
+  workspacePath   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  allowlist     BotAllowlist[]
+  pairings      PairingRequest[]
+  conversations Conversation[]
+  mcps          BotMcp[]
+  nodes         BotNode[]
+  usage         UsageDaily[]
+  approvals     ToolApproval[]
+
+  @@unique([platform, tgBotId])
+  @@index([userId])
+}
+
+/// Telegram users/groups allowed to talk to a bot.
+model BotAllowlist {
+  id        String   @id @default(cuid())
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  kind      String // user | group
+  tgId      String
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@unique([botId, kind, tgId])
+}
+
+model PairingRequest {
+  id         String    @id @default(cuid())
+  botId      String
+  bot        Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  tgUserId   String
+  tgUsername String?
+  tgName     String?
+  tgChatId   String
+  code       String
+  status     String    @default("pending") // pending | approved | rejected | expired
+  expiresAt  DateTime
+  decidedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([botId, code])
+  @@index([botId, tgUserId, status])
+}
+
+// ───────────────────────────── MCP ─────────────────────────────
+
+model McpServer {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  transport   String // streamable-http | sse
+  url         String    @db.VarChar(2048)
+  encHeaders  String?   @db.Text // JSON { "Authorization": "Bearer ..." } encrypted
+  status      String    @default("unknown") // unknown | ok | error
+  lastError   String?   @db.VarChar(1024)
+  toolsCache  Json? // [{ name, description, inputSchema }]
+  toolsSyncAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  bots BotMcp[]
+
+  @@index([userId])
+}
+
+model BotMcp {
+  botId       String
+  bot         Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  mcpServerId String
+  mcpServer   McpServer @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
+  /// null = all tools; otherwise list of allowed tool names
+  allowedTools Json?
+  createdAt   DateTime  @default(now())
+
+  @@id([botId, mcpServerId])
+}
+
+// ───────────────────────────── Nodes ─────────────────────────────
+
+model Node {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  platform      String? // windows | macos | linux | docker
+  arch          String?
+  agentVersion  String?
+  tokenHash     String?   @unique
+  pairingCode   String?   @unique
+  pairingExpiresAt DateTime?
+  status        String    @default("pending") // pending | online | offline | revoked
+  caps          Json? // declared capabilities
+  /// Which declared capabilities the user has enabled for agents
+  enabledCaps   Json?
+  workspaceRoot String?
+  lastSeenAt    DateTime?
+  lastIp        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bots BotNode[]
+
+  @@index([userId])
+}
+
+model BotNode {
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  nodeId    String
+  node      Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([botId, nodeId])
+}
+
+// ───────────────────────────── Conversations ─────────────────────────────
+
+/// One per OpenClaw-style session key: dm:<botId>:main, group:<botId>:<chatId>[:<topicId>], web:<botId>:<userId>
+model Conversation {
+  id            String    @id @default(cuid())
+  botId         String
+  bot           Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sessionKey    String
+  kind          String // dm | group | web
+  tgChatId      String?
+  tgThreadId    String?
+  title         String?
+  /// Summary produced by compaction; prepended to history when set
+  summary       String?   @db.Text
+  compactedAt   DateTime?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  messages Message[]
+
+  @@unique([botId, sessionKey])
+  @@index([botId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // user | assistant | tool | system
+  /// AI SDK message parts (text, tool-call, tool-result, file refs)
+  content        Json
+  /// Short plain-text rendering for lists/search
+  text           String?      @db.Text
+  tgMessageId    String?
+  senderTgId     String?
+  senderName     String?
+  model          String?
+  tokensIn       Int?
+  tokensOut      Int?
+  durationMs     Int?
+  error          String?      @db.VarChar(1024)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// Human-in-the-loop approvals for risky tools (exec on node/sandbox).
+model ToolApproval {
+  id             String    @id @default(cuid())
+  botId          String
+  bot            Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversationId String?
+  toolName       String
+  args           Json
+  target         String // sandbox | node:<id>
+  status         String    @default("pending") // pending | approved | denied | expired
+  decidedBy      String? // tg user id or "web"
+  decidedAt      DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+
+  @@index([botId, status])
+}
+
+// ───────────────────────────── Usage ─────────────────────────────
+
+model UsageDaily {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botId     String?
+  bot       Bot?     @relation(fields: [botId], references: [id], onDelete: SetNull)
+  day       DateTime @db.Date
+  messages  Int      @default(0)
+  tokensIn  Int      @default(0)
+  tokensOut Int      @default(0)
+  toolCalls Int      @default(0)
+
+  @@unique([userId, botId, day])
+  @@index([userId, day])
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@easylopster/gateway",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
+    "build": "tsdown",
+    "start": "node dist/index.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.87",
+    "@ai-sdk/google": "^4.0.104",
+    "@ai-sdk/openai": "^4.0.101",
+    "@ai-sdk/openai-compatible": "^3.0.77",
+    "@easylopster/db": "workspace:*",
+    "@easylopster/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "ai": "^7.0.152",
+    "bullmq": "^6.4.1",
+    "grammy": "^1.46.0",
+    "ioredis": "^6.0.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/ws": "^8.18.1",
+    "tsdown": "^0.23.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}
