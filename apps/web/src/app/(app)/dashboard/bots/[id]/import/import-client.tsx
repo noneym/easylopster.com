@@ -88,6 +88,9 @@ export function ImportClient({ botId, hasMemory }: { botId: string; hasMemory: b
             <li key={w.path}>{w.path}</li>
           ))}
         </ul>
+        <p className="text-sm text-fg-muted">
+          Existing conversations keep their history, so the bot may still answer in its old voice there. Press <span className="font-medium text-fg">New session</span> in the web chat or send <span className="font-mono">/new</span> on Telegram to start fresh with the imported persona.
+        </p>
         {result.heartbeat === "created" && <p className="text-sm text-fg-muted">A “Proactive check” automation was created; it follows HEARTBEAT.md every 30 minutes while you are idle.</p>}
         {result.heartbeat === "exists" && <p className="text-sm text-fg-muted">The existing “Proactive check” automation now follows HEARTBEAT.md.</p>}
         {!!result.skipped?.length && (
