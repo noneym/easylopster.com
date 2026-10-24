@@ -20,6 +20,7 @@
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.152",
     "bullmq": "^6.4.1",
+    "cron-parser": "^5.10.2",
     "dockerode": "^5.0.1",
     "grammy": "^1.46.0",
     "ioredis": "^6.0.0",

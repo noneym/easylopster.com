@@ -9,6 +9,7 @@ import { handleInbound, type InboundJob } from "./agent/inbound.ts";
 import { startTelegramPolling } from "./telegram/polling.ts";
 import { sandboxAvailable, sandboxExec, startSandboxReaper } from "./sandbox/docker.ts";
 import { handleWorkspaceHttp } from "./workspace/http.ts";
+import { startAutomationScheduler } from "./agent/automations.ts";
 
 const log = (msg: string, extra?: unknown) =>
   console.log(`[gateway] ${new Date().toISOString()} ${msg}`, extra ?? "");
@@ -81,11 +82,13 @@ async function main() {
   // Dev only: pull Telegram updates when there is no public webhook URL.
   const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};
   const stopSandbox = sandboxAvailable() ? startSandboxReaper() : () => {};
+  const stopAutomations = process.env.AUTOMATIONS_ENABLED === "0" ? () => {} : startAutomationScheduler();
 
   const shutdown = async (sig: string) => {
     log(`${sig} received, shutting down`);
     stopPolling();
     stopSandbox();
+    stopAutomations();
     await worker.close();
     nodeServer.close();
     server.close();

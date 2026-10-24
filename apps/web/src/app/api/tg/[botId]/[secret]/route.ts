@@ -42,7 +42,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/tg/[botId]/[sec
   await inboundQueue().add(
     "telegram",
     { botId, source: "telegram", sessionKey, payload: update, receivedAt: new Date().toISOString() },
-    { jobId: u.update_id ? `tg:${botId}:${u.update_id}` : undefined },
+    { jobId: u.update_id ? `tg-${botId}-${u.update_id}` : undefined },
   );
   return new Response("ok", { status: 200 });
 }

@@ -5,11 +5,12 @@ import { runAgent } from "./run.ts";
 import { getOrCreateConversation } from "./session.ts";
 import { checkQuota } from "./usage.ts";
 import { publishChat } from "./pubsub.ts";
+import { runAutomationJob } from "./automation-run.ts";
 
 /** Job payload enqueued by the web app (Telegram webhook / web chat). Must match apps/web/src/lib/queue.ts. */
 export interface InboundJob {
   botId: string;
-  source: "telegram" | "web";
+  source: "telegram" | "web" | "automation";
   sessionKey: string;
   payload: unknown;
   receivedAt: string;
@@ -22,6 +23,11 @@ export interface InboundContext {
 export async function handleInbound(job: InboundJob, _ctx: InboundContext): Promise<void> {
   const bot = await db.bot.findUnique({ where: { id: job.botId }, include: { providerKey: true, user: { select: { id: true, timezone: true } } } });
   if (!bot || bot.status !== "active") return;
+
+  if (job.source === "automation") {
+    await runAutomationJob(bot, (job.payload as { automationId: string }).automationId, _ctx.nodes);
+    return;
+  }
 
   if (job.source === "telegram") {
     await handleTelegramUpdate(bot, job.payload as never, job.sessionKey, _ctx.nodes);

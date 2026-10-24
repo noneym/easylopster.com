@@ -252,6 +252,11 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
   }
   if (!bodyText) return;
 
+  if (chatType === "direct" && bot.ownerTgChatId !== String(m.chat.id)) {
+    // First (or changed) approved DM becomes the delivery target for automations.
+    if (!bot.ownerTgChatId) await db.bot.update({ where: { id: bot.id }, data: { ownerTgChatId: String(m.chat.id) } }).catch(() => {});
+  }
+
   // ── Quota ──
   const quota = await checkQuota(bot.userId);
   if (!quota.ok) {

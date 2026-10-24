@@ -6,7 +6,7 @@ import { QUEUES, queuePrefix } from "@easylopster/shared";
 /** Shape must match apps/gateway/src/agent/inbound.ts InboundJob. */
 export interface InboundJob {
   botId: string;
-  source: "telegram" | "web";
+  source: "telegram" | "web" | "automation";
   sessionKey: string;
   payload: unknown;
   receivedAt: string;

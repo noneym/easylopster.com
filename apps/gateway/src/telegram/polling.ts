@@ -40,7 +40,7 @@ export function startTelegramPolling(): () => void {
             await queue.add(
               "telegram",
               { botId, source: "telegram", sessionKey, payload: u, receivedAt: new Date().toISOString() },
-              { jobId: `tg:${botId}:${u.update_id}`, attempts: 3, backoff: { type: "exponential", delay: 2000 }, removeOnComplete: 1000, removeOnFail: 1000 },
+              { jobId: `tg-${botId}-${u.update_id}`, attempts: 3, backoff: { type: "exponential", delay: 2000 }, removeOnComplete: 1000, removeOnFail: 1000 },
             );
           }
         } catch (err) {

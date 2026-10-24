@@ -18,6 +18,7 @@ import type { NodeServer } from "../nodes/server.ts";
 import { loadSkills, skillsCatalog, skillTools } from "./skills.ts";
 import { memoryFlush, memoryRecall, memoryTools } from "./memory.ts";
 import { loadBotSecrets, secretsTools } from "./secrets.ts";
+import { automationsTools } from "./automations.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -104,6 +105,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     ...memoryTools(ws),
     ...skillTools(ws, skills),
     ...(secrets.meta.length ? secretsTools(secrets) : {}),
+    ...automationsTools(bot.id, timezone),
     ...execTools,
     ...mcp.tools,
     ...nodeTools.tools,

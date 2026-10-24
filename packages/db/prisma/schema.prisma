@@ -127,6 +127,9 @@ model Bot {
   // Tool policy: { builtin: {...}, fs: "cloud"|"node:<id>"|"off", exec: "off"|"sandbox"|"node:<id>", execApproval: "always"|"never" }
   toolPolicy Json?
 
+  /// Telegram chat id of the owner's DM (first approved DM); automations announce here
+  ownerTgChatId String?
+
   // Where this bot's workspace lives: cloud | node
   workspaceMode   String  @default("cloud")
   workspaceNodeId String?
@@ -143,6 +146,7 @@ model Bot {
   usage         UsageDaily[]
   approvals     ToolApproval[]
   secrets       BotSecret[]
+  automations   Automation[]
 
   @@unique([platform, tgBotId])
   @@index([userId])
@@ -370,4 +374,38 @@ model BotSecret {
   createdAt DateTime @default(now())
 
   @@id([botId, secretId])
+}
+
+// ───────────────────────────── Automations (cron / heartbeat) ─────────────────────────────
+
+/// Scheduled agent turns, OpenClaw-style: reminders, recurring checks, one-shot wakeups.
+model Automation {
+  id            String    @id @default(cuid())
+  botId         String
+  bot           Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  name          String
+  enabled       Boolean   @default(true)
+  /// { kind: "at", at: ISO } | { kind: "every", everyMs } | { kind: "cron", expr, tz? }
+  schedule      Json
+  /// The text the agent receives as the wake message
+  prompt        String    @db.Text
+  /// main = run in the bot's main DM session (with history); isolated = fresh session per job
+  sessionTarget String    @default("main")
+  /// announce = send the reply to the owner's Telegram DM; none = store only
+  delivery      String    @default("announce")
+  /// skip the run when the owner was active in the main session during the last 10 minutes
+  idleOnly      Boolean   @default(false)
+  createdBy     String    @default("owner") // owner | agent
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  lastStatus    String? // ok | silent | skipped | error
+  lastResult    String?   @db.Text
+  lastError     String?   @db.VarChar(1000)
+  runCount      Int       @default(0)
+  failures      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([enabled, nextRunAt])
+  @@index([botId])
 }

@@ -10,6 +10,7 @@ import { AllowlistForm } from "./allowlist-form";
 import { BotMcpForm } from "./bot-mcp-form";
 import { BotNodesForm } from "./bot-nodes-form";
 import { BotSecretsForm } from "./bot-secrets-form";
+import { AutomationsSection } from "./automations/automations-section";
 import { onlineNodeIds } from "../../nodes/actions";
 
 export const metadata = { title: "Bot" };
@@ -25,6 +26,7 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
         mcps: true,
         nodes: true,
         secrets: true,
+        automations: { orderBy: { createdAt: "asc" } },
         pairings: { where: { status: "pending", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } },
         _count: { select: { conversations: true } },
       },
@@ -181,6 +183,32 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
           />
 
           <BotSecretsForm botId={bot.id} secrets={secrets} linked={bot.secrets.map((l) => l.secretId)} />
+
+          <AutomationsSection
+            botId={bot.id}
+            hasOwnerChat={!!bot.ownerTgChatId}
+            hasHeartbeat={bot.automations.some((a) => a.name === "Proactive check")}
+            rows={bot.automations.map((a) => {
+              const s = a.schedule as { kind: string; everyMs?: number; expr?: string; tz?: string; at?: string };
+              const schedule = s.kind === "every" ? `every ${Math.round((s.everyMs ?? 0) / 60000)} min` : s.kind === "cron" ? `cron ${s.expr}` : `once at ${s.at}`;
+              return {
+                id: a.id,
+                name: a.name,
+                enabled: a.enabled,
+                schedule,
+                prompt: a.prompt,
+                sessionTarget: a.sessionTarget,
+                idleOnly: a.idleOnly,
+                createdBy: a.createdBy,
+                nextRunAt: a.nextRunAt?.toISOString() ?? null,
+                lastRunAt: a.lastRunAt?.toISOString() ?? null,
+                lastStatus: a.lastStatus,
+                lastResult: a.lastResult,
+                lastError: a.lastError,
+                runCount: a.runCount,
+              };
+            })}
+          />
         </div>
 
         <aside className="space-y-4">
