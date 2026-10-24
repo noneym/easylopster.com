@@ -158,7 +158,28 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
             </div>
           </div>
         )}
-        {tool && (
+        {busy && !streamText && (
+          <div className="flex justify-start" aria-live="polite">
+            <div className="inline-flex items-center gap-2.5 rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2.5 text-sm text-fg-muted">
+              {tool ? (
+                <>
+                  <WrenchIcon size={14} className="text-accent-ink" />
+                  <span>
+                    Running <span className="font-mono text-fg">{tool}</span>
+                  </span>
+                </>
+              ) : (
+                <span>Thinking</span>
+              )}
+              <span className="inline-flex gap-1" aria-hidden>
+                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.3s]" />
+                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.15s]" />
+                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce" />
+              </span>
+            </div>
+          </div>
+        )}
+        {tool && streamText && (
           <p className="inline-flex items-center gap-2 text-xs text-fg-muted font-mono">
             <WrenchIcon size={12} /> {tool}
           </p>

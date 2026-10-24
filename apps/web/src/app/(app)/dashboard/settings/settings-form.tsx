@@ -10,7 +10,7 @@ export function SettingsForm({ name, email, timezone }: { name: string; email: s
 
   return (
     <>
-      <form action={profileAction} className="card p-6 space-y-5" noValidate>
+      <form action={profileAction} className="card p-6 space-y-5" noValidate onReset={(e) => e.preventDefault()}>
         <h2 className="font-semibold tracking-tight">Profile</h2>
         <div>
           <label htmlFor="email" className="label">

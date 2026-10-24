@@ -58,6 +58,11 @@ export function ModelSelect({
       className="input font-mono text-sm"
       required={required}
     >
+      {!value && (
+        <option value="" disabled>
+          Choose a model…
+        </option>
+      )}
       {!listed && value && <option value={value}>{value}</option>}
       {models.map((m) => (
         <option key={m} value={m}>

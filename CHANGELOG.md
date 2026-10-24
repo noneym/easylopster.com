@@ -6,6 +6,11 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Dashboard forms no longer reset after saving (React 19 action reset), which snapped the model
+  picker back to the first entry and made the next save submit the wrong model.
+- Web chat shows a "Thinking" / "Running <tool>" indicator while a reply is pending.
+
 ## [1.1.1] - 2026-10-24
 
 ### Added

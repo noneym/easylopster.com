@@ -8,7 +8,7 @@ export function KeyEditForm({ id, label, defaultModel, models }: { id: string; l
   const [state, action, pending] = useActionState<KeyFormState, FormData>(updateKey, undefined);
   const [model, setModel] = useState(defaultModel);
   return (
-    <form action={action} className="card p-6 space-y-5" noValidate>
+    <form action={action} className="card p-6 space-y-5" noValidate onReset={(e) => e.preventDefault()}>
       <input type="hidden" name="id" value={id} />
       <div>
         <label htmlFor="label" className="label">

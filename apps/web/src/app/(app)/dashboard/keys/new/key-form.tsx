@@ -18,7 +18,7 @@ export function KeyForm() {
   const models = test?.models?.length ? test.models : info.models.map((m) => m.id);
 
   return (
-    <form className="card p-6 space-y-6 max-w-xl" noValidate>
+    <form className="card p-6 space-y-6 max-w-xl" noValidate onReset={(e) => e.preventDefault()}>
       <div>
         <label htmlFor="provider" className="label">
           Provider

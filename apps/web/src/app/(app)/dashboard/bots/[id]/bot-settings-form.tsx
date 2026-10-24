@@ -47,7 +47,7 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
   const fe = state?.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-6" noValidate>
+    <form action={action} className="space-y-6" noValidate onReset={(e) => e.preventDefault()}>
       <input type="hidden" name="id" value={bot.id} />
 
       <section className="card p-6 space-y-5">

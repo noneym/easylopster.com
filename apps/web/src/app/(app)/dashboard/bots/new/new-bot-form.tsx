@@ -16,7 +16,7 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
   const fe = state?.fieldErrors ?? {};
 
   return (
-    <form action={action} className="card p-6 space-y-6 max-w-xl" noValidate>
+    <form action={action} className="card p-6 space-y-6 max-w-xl" noValidate onReset={(e) => e.preventDefault()}>
       <div>
         <label htmlFor="name" className="label">
           Name
