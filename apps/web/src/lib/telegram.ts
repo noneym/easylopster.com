@@ -56,6 +56,7 @@ export const BOT_COMMANDS = [
   { command: "reset", description: "Reset the current session." },
   { command: "status", description: "Show current status." },
   { command: "model", description: "Show or set the model for this chat." },
+  { command: "crons", description: "List this bot's automations." },
   { command: "whoami", description: "Show your sender id." },
   { command: "stop", description: "Stop the current run." },
 ];

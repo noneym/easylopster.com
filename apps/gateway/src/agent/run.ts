@@ -49,6 +49,10 @@ export interface RunInput {
   extraContext?: string[];
   /** Subagent nesting depth (0 = top level) */
   depth?: number;
+  /** Continuation turn: the user text is a runtime nudge, not stored as a message. */
+  ephemeralUser?: boolean;
+  /** How many automatic continuations already happened for this user turn. */
+  continuation?: number;
 }
 
 export interface RunOutput {
@@ -60,11 +64,18 @@ export interface RunOutput {
   tokensIn: number;
   tokensOut: number;
   toolCalls: number;
+  /** The step budget ended the run while the model still wanted to call tools. */
+  cutOff: boolean;
 }
 
-const MAX_STEPS = 12;
+/** Tool-call steps per model turn (OpenClaw-sized budget); env MAX_STEPS overrides. */
+const MAX_STEPS = Number(process.env.MAX_STEPS ?? 40);
 /** Whole-run ceiling so a hung provider never pins a worker slot. */
-const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 180_000);
+const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 600_000);
+/** Automatic "keep going" turns after a cut-off, so long tasks are not left half done. */
+const MAX_CONTINUATIONS = Number(process.env.MAX_CONTINUATIONS ?? 2);
+const CONTINUE_PROMPT =
+  "[easylopster] Your previous turn was cut off by the per-turn tool budget before the task was finished. Continue the same task from exactly where you stopped: do not restart, do not repeat completed steps, do not re-explain. When the task is done, give the final result; if you are blocked, say what blocks you.";
 
 export function isSilent(text: string) {
   return text.trim().toUpperCase() === "NO_REPLY";
@@ -186,14 +197,16 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
       : { role: "user", content: input.userText },
   ];
 
-  const userRow = await saveMessage(conversation.id, {
-    role: "user",
-    content: { text: input.storedText },
-    text: input.storedText,
-    senderTgId: input.senderTgId,
-    senderName: input.senderName,
-    tgMessageId: input.tgMessageId,
-  });
+  const userRow = input.ephemeralUser
+    ? null
+    : await saveMessage(conversation.id, {
+        role: "user",
+        content: { text: input.storedText },
+        text: input.storedText,
+        senderTgId: input.senderTgId,
+        senderName: input.senderName,
+        tgMessageId: input.tgMessageId,
+      });
 
   const started = Date.now();
   const abortCtrl = new AbortController();
@@ -215,6 +228,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   let tokensIn = 0;
   let tokensOut = 0;
   let error: string | undefined;
+  let cutOff = false;
 
   try {
     const result = streamText({
@@ -257,6 +271,9 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     const usage = await Promise.resolve(result.totalUsage).catch(() => null);
     tokensIn = usage?.inputTokens ?? 0;
     tokensOut = usage?.outputTokens ?? 0;
+    const steps = await Promise.resolve(result.steps).catch(() => []);
+    cutOff = steps.length >= MAX_STEPS && steps[steps.length - 1]?.finishReason === "tool-calls";
+    console.log(`[run] ${new Date().toISOString()} bot=${bot.id} steps=${steps.length} finish=${steps[steps.length - 1]?.finishReason ?? "?"} cutOff=${cutOff} continuation=${input.continuation ?? 0} textChars=${text.length}`);
   } catch (err) {
     if (timedOut) {
       error = `The model did not answer within ${Math.round(RUN_TIMEOUT_MS / 1000)} seconds (${resolved.identity}).`;
@@ -271,7 +288,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   }
 
   if (error && error !== "stopped" && !text.trim()) {
-    await db.message.update({ where: { id: userRow.id }, data: { error: error.slice(0, 1000) } });
+    if (userRow) await db.message.update({ where: { id: userRow.id }, data: { error: error.slice(0, 1000) } });
     throw new Error(error);
   }
 
@@ -298,5 +315,32 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     return r.text;
   }).catch(() => {});
 
-  return { text: finalText, media: extracted.media, silent: silent || (!finalText && extracted.media.length === 0), messageId: assistantRow.id, tokensIn, tokensOut, toolCalls };
+  const out: RunOutput = { text: finalText, media: extracted.media, silent: silent || (!finalText && extracted.media.length === 0), messageId: assistantRow.id, tokensIn, tokensOut, toolCalls, cutOff };
+
+  // Cut off mid-task: keep going in a continuation turn (the partial reply is already saved as history).
+  const continuation = input.continuation ?? 0;
+  if (cutOff && !error && continuation < MAX_CONTINUATIONS) {
+    console.log(`[run] ${new Date().toISOString()} bot=${bot.id} cut off after ${MAX_STEPS} steps; continuation ${continuation + 1}/${MAX_CONTINUATIONS}`);
+    const prefix = finalText ? `${finalText}\n\n` : "";
+    const next = await runAgent({
+      ...input,
+      userText: CONTINUE_PROMPT,
+      storedText: "",
+      images: undefined,
+      ephemeralUser: true,
+      continuation: continuation + 1,
+      onDelta: input.onDelta ? (t) => input.onDelta!(prefix + t) : undefined,
+    });
+    return {
+      text: [finalText, next.text].filter(Boolean).join("\n\n"),
+      media: [...extracted.media, ...next.media],
+      silent: out.silent && next.silent,
+      messageId: next.messageId,
+      tokensIn: tokensIn + next.tokensIn,
+      tokensOut: tokensOut + next.tokensOut,
+      toolCalls: toolCalls + next.toolCalls,
+      cutOff: next.cutOff,
+    };
+  }
+  return out;
 }

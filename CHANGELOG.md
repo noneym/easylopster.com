@@ -6,7 +6,17 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-24
+
 ### Added
+- Long tasks are no longer left half done: the per-turn tool budget is 40 steps (was 12, env
+  `MAX_STEPS`), the run timeout is 10 minutes (`RUN_TIMEOUT_MS`), and when a turn is cut off by
+  the budget the gateway automatically continues it (up to `MAX_CONTINUATIONS`, default 2) with a
+  "continue where you stopped" nudge; the partial reply stays in history, the final reply is sent once.
+- `/crons` (alias `/automations`) on Telegram lists the bot's automations with schedule, next run and
+  last status in the owner's time zone.
+- Web chat shows earlier sessions of the bot in a left panel (desktop widths) with links to their
+  transcripts.
 - Import from OpenClaw (bot page → Import): pick the OpenClaw workspace folder in the browser, see
   what is importable grouped as persona, memory, heartbeat, skills and scripts (media, .git, trash
   and large files are skipped before upload), choose append or replace for MEMORY.md, optionally
@@ -161,7 +171,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/noneym/easylopster.com/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/noneym/easylopster.com/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/noneym/easylopster.com/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noneym/easylopster.com/compare/v1.0.0...v1.1.0

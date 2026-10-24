@@ -183,12 +183,33 @@ async function handleCommand(bot: BotFull, m: TgMessage, cmd: string, args: stri
           "/usage - Today's usage",
           "/compact - Compact the session context now",
           "/activation mention|always - Group activation mode",
+          "/crons - List this bot's automations (reminders, heartbeat, cron jobs)",
           "/whoami - Show your sender id",
           "/stop - Stop the current run",
         ].join("\n"),
         opts,
       );
       return true;
+    case "crons":
+    case "automations": {
+      const rows = await db.automation.findMany({ where: { botId: bot.id }, orderBy: { createdAt: "asc" } });
+      if (!rows.length) {
+        await tg.sendText(chatId, "No automations yet. Ask me to remind you of something or to check something regularly, or add one in the dashboard.", opts);
+        return true;
+      }
+      const tz = bot.user.timezone || "UTC";
+      const when = (d: Date | null) => (d ? new Intl.DateTimeFormat("en-GB", { timeZone: tz, dateStyle: "medium", timeStyle: "short" }).format(d) : "-");
+      const sched = (s: unknown) => {
+        const x = (s ?? {}) as { kind?: string; everyMs?: number; expr?: string; at?: string };
+        if (x.kind === "every" && x.everyMs) return `every ${x.everyMs % 3_600_000 === 0 ? `${x.everyMs / 3_600_000}h` : `${Math.round(x.everyMs / 60_000)}m`}`;
+        if (x.kind === "cron") return `cron ${x.expr}`;
+        if (x.kind === "at") return `once at ${when(x.at ? new Date(x.at) : null)}`;
+        return "?";
+      };
+      const lines = rows.map((a) => `${a.enabled ? "🟢" : "⚪"} ${a.name} — ${sched(a.schedule)}${a.idleOnly ? ", idle only" : ""}\n   next: ${when(a.nextRunAt)} · last: ${a.lastStatus ?? "never"}${a.createdBy === "agent" ? " · by me" : ""}`);
+      await tg.sendText(chatId, `Automations (${rows.length}), times in ${tz}:\n\n${lines.join("\n")}\n\nManage them in the dashboard or just tell me what to change.`, opts);
+      return true;
+    }
     case "whoami":
     case "id":
       await tg.sendText(chatId, `Your id: ${m.from?.id ?? "unknown"}\nChat id: ${chatId}${m.message_thread_id ? `\nTopic id: ${m.message_thread_id}` : ""}`, opts);
