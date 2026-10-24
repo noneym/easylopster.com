@@ -6,6 +6,9 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Cloudflare Email Service as the mail transport (`MAIL_MAILER=cloudflare`), with SMTP still available; styled verification email.
+
 ## [1.0.0] - 2026-10-24
 
 First public beta. A hosted, zero-install reimplementation of the OpenClaw idea: sign up on the
