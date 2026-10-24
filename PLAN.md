@@ -120,7 +120,7 @@ easyclaw/
 - Lokal geliştirme prod Redis/DB'yi paylaşır: `QUEUE_PREFIX=dev` zorunlu (yoksa prod gateway lokal işleri kapar).
 
 ### OpenClaw'a göre eksikler (backlog, öncelik sırasıyla)
-1. **Automations / cron + heartbeat**: zamanlanmış görevler ve "beni hatırlat" (OpenClaw `automations` tool'u, `HEARTBEAT_OK`). Gateway'de BullMQ repeatable job + dashboard listesi.
+1. ~~Automations / cron + heartbeat~~ YAPILDI: `Automation` modeli (at/every/cron), gateway zamanlayıcı (20 sn), `automations` tool'u, dashboard bölümü, tek tıkla heartbeat ("Proactive check" 30 dk, idleOnly, NO_REPLY sessiz), sahibe Telegram DM / web chat teslimi.
 2. **Standing intents** (`intent` tool'u): olay tetiklemeli hatırlatıcılar ("X konusu açılınca şunu söyle").
 3. **Subagents** (`sessions_spawn` / `sessions_yield`): ayrı bağlamda yan görev; bizde tek koşu var.
 4. **Dreaming**: arka planda günlük notlardan MEMORY.md'ye terfi (cron job + DREAMS.md).
