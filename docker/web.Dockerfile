@@ -13,6 +13,14 @@ RUN pnpm install --frozen-lockfile \
  && pnpm --filter @easylopster/db generate \
  && pnpm --filter @easylopster/web build
 
+# ---------- migration toolchain (self-contained prisma CLI) ----------
+FROM base AS migrate
+WORKDIR /migrate
+COPY packages/db/package.json ./db-package.json
+RUN PV=$(node -p "require('./db-package.json').dependencies.prisma.replace(/^\^/, '')")  && DV=$(node -p "require('./db-package.json').dependencies.dotenv.replace(/^\^/, '')")  && npm init -y >/dev/null  && npm install --no-audit --no-fund --ignore-scripts "prisma@${PV}" "dotenv@${DV}"
+COPY packages/db/prisma ./prisma
+COPY packages/db/prisma.config.ts ./prisma.config.ts
+
 # ---------- runtime ----------
 FROM node:22-bookworm-slim
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -22,12 +30,8 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/apps/web/public ./apps/web/public
-# Prisma CLI + migrations for `migrate deploy` at boot
-COPY --from=build /app/packages/db/prisma ./packages/db/prisma
-COPY --from=build /app/packages/db/prisma.config.ts ./packages/db/prisma.config.ts
-COPY --from=build /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=build /app/node_modules/dotenv ./node_modules/dotenv
+# Migrations run from their own directory with a self-contained prisma CLI
+COPY --from=migrate /migrate ./migrate
 COPY docker/web-entrypoint.sh ./web-entrypoint.sh
 RUN chmod +x web-entrypoint.sh && chown -R node:node /app
 USER node

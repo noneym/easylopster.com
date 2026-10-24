@@ -6,7 +6,7 @@ fi
 
 echo "Applying database migrations"
 n=0
-until (cd /app/packages/db && node /app/node_modules/prisma/build/index.js migrate deploy); do
+until (cd /app/migrate && node node_modules/prisma/build/index.js migrate deploy); do
   n=$((n + 1))
   if [ "$n" -ge 5 ]; then
     echo "Migrations failed 5 times; starting the server anyway." >&2
