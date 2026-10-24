@@ -7,6 +7,6 @@ export default defineConfig({
   target: "node22",
   outDir: "dist",
   clean: true,
-  // Bundle our workspace packages (they ship TS sources), keep npm deps external.
-  noExternal: [/^@easylopster//],
+  // Bundle our workspace packages (they ship TS sources, including subpath imports), keep npm deps external.
+  noExternal: [/^@easylopster\//],
 });
