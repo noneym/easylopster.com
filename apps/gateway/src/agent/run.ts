@@ -18,6 +18,7 @@ import type { NodeServer } from "../nodes/server.ts";
 import { loadSkills, skillsCatalog, skillTools } from "./skills.ts";
 import { memoryFlush, memoryRecall, memoryTools } from "./memory.ts";
 import { loadBotSecrets, secretsTools } from "./secrets.ts";
+import { secretsSetupTools, setupTools } from "./setup-tools.ts";
 import { automationsTools } from "./automations.ts";
 import { firedIntents, intentTools } from "./intents.ts";
 import { subagentTools, SUBAGENT_TASK_LABEL } from "./subagent.ts";
@@ -89,8 +90,13 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   // Bootstrap files: SOUL.md / USER.md from the dashboard, MEMORY.md + recent daily notes from the workspace.
   const bootstrap: [string, string][] = [];
-  if (bot.systemPrompt) bootstrap.push(["SOUL.md", bot.systemPrompt]);
-  if (bot.userProfile) bootstrap.push(["USER.md", bot.userProfile]);
+  const bootstrapMd = await ws.readOptional("BOOTSTRAP.md");
+  if (bootstrapMd) bootstrap.push(["BOOTSTRAP.md", bootstrapMd]);
+  // Workspace files win (the agent can edit them); the dashboard columns are the fallback/mirror.
+  const soul = (await ws.readOptional("SOUL.md")) ?? bot.systemPrompt;
+  if (soul) bootstrap.push(["SOUL.md", soul]);
+  const userMd = (await ws.readOptional("USER.md")) ?? bot.userProfile;
+  if (userMd) bootstrap.push(["USER.md", userMd]);
   const memory = await ws.readOptional("MEMORY.md");
   if (memory) bootstrap.push(["MEMORY.md", memory]);
   const now = new Date();
@@ -115,10 +121,11 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const skills = await loadSkills(ws);
   const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel, env: secrets.env }) : { tools: {}, summary: [] };
   const tools: ToolSet = {
-    ...builtinTools({ ws, timezone, now: () => new Date() }),
+    ...builtinTools({ ws, botId: bot.id, timezone, now: () => new Date() }),
     ...memoryTools(ws, bot.userId),
     ...skillTools(ws, skills),
-    ...(secrets.meta.length ? secretsTools(secrets) : {}),
+    ...(depth === 0 ? secretsSetupTools({ botId: bot.id, userId: bot.userId, conversationId: conversation.id }, secrets.meta) : secrets.meta.length ? secretsTools(secrets) : {}),
+    ...(depth === 0 ? setupTools({ botId: bot.id, userId: bot.userId, conversationId: conversation.id }) : {}),
     ...automationsTools(bot.id, timezone),
     ...intentTools(bot.id, conversation.id),
     ...webSearchTools(),
@@ -150,6 +157,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     skillsCatalog: skillsCatalog(skills, "/workspace"),
     secretNames: secrets.meta.map((m) => m.name),
     bootstrap,
+    bootstrapPending: !!bootstrapMd,
     toolNames: Object.keys(tools),
     mcpInstructions: mcp.instructions,
     timezone,

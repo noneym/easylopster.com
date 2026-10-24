@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpIcon, WrenchIcon } from "@phosphor-icons/react";
-import { decideWebApproval, resetWebConversation, sendWebMessage } from "./actions";
+import { decideWebApproval, listWebMessages, resetWebConversation, sendWebMessage } from "./actions";
 import { Markdown } from "@/components/app/markdown";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
 type Approval = { id: string; target?: string; preview?: string; status: string };
 
-export function ChatClient({ botId, conversationId: initialConv, initial }: { botId: string; conversationId: string; initial: Msg[] }) {
+export function ChatClient({ botId, conversationId: initialConv, initial, initialBusy = false }: { botId: string; conversationId: string; initial: Msg[]; initialBusy?: boolean }) {
   const [conversationId, setConversationId] = useState(initialConv);
   const [messages, setMessages] = useState<Msg[]>(initial);
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(initialBusy);
   const [tool, setTool] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -58,6 +58,32 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [messages, tool, streamText, approvals]);
+
+  // Catch-up poll while a reply is pending: if the SSE stream missed the final event (reconnect, dev
+  // route compile, tab in background) the stored messages still arrive.
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(async () => {
+      const lastStored = [...messages].reverse().find((m) => !m.id.startsWith("u-") && !m.id.startsWith("err-") && m.id !== "kickoff");
+      const r = await listWebMessages(botId, conversationId, lastStored?.id).catch(() => null);
+      if (!r) return;
+      const fresh = r.messages.filter((m) => m.role === "assistant" && (m.text || m.error));
+      if (fresh.length) {
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          return [...prev, ...fresh.filter((m) => !seen.has(m.id)).map((m) => ({ id: m.id, role: m.role, text: m.text, error: m.error }))];
+        });
+      }
+      const failedUser = r.messages.find((m) => m.role === "user" && m.error);
+      if (failedUser) setMessages((prev) => (prev.some((m) => m.id === `err-${failedUser.id}`) ? prev : [...prev, { id: `err-${failedUser.id}`, role: "assistant", text: "", error: failedUser.error }]));
+      if (!r.busy) {
+        setStreamText("");
+        setTool(null);
+        setBusy(false);
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [busy, messages, botId, conversationId]);
 
   function submit() {
     const text = draft.trim();

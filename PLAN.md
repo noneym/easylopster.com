@@ -73,7 +73,7 @@
 Tool router her çağrıda "bu tool nerede çalışacak" kararını botun ayarına göre verir (bulut → sandbox → node). Katman 3'ün Docker imajı aynı repodan GitHub Actions ile `ghcr.io/noneym/easylopster-node` olarak yayınlanır.
 
 ### OpenClaw paritesi (24 Ekim 2026 itibarıyla)
-Yapıldı: automations + heartbeat, standing intents, subagents (sessions_spawn, tek seviye), dreaming (04:00 yerel), Telegram medya giriş/çıkış (foto/ses/dosya/video, `MEDIA:`), web_search (Brave/DuckDuckGo), `/think /usage /compact /activation`, düzenlenen mesajlar, ack reaksiyonu, grup geçmiş penceresi, günlük/boşta oturum sıfırlama, hibrit vektör hafıza (OpenAI embedding varsa), konuşma listesi/transkript/arama, kullanım sayfası, e-posta doğrulama (SMTP ile), Google ile giriş (env ile).
+Yapıldı: automations + heartbeat, standing intents, subagents (sessions_spawn, tek seviye), dreaming (04:00 yerel), Telegram medya giriş/çıkış (foto/ses/dosya/video, `MEDIA:`), web_search (Brave/DuckDuckGo), `/think /usage /compact /activation`, düzenlenen mesajlar, ack reaksiyonu, grup geçmiş penceresi, günlük/boşta oturum sıfırlama, hibrit vektör hafıza (OpenAI embedding varsa), BOOTSTRAP.md ile konuşarak kurulum (bot eklenince web chat; IDENTITY/SOUL/USER dosyalarını ajan yazar), sohbetten kurulum araçları (setup_keys/setup_mcp/setup_node/secrets set/skill_import), dashboard Skills sayfası, konuşma listesi/transkript/arama, kullanım sayfası, e-posta doğrulama (SMTP ile), Google ile giriş (env ile).
 
 Kalanlar (düşük öncelik): forum topic başına ayrı agent, Telegram grup reaksiyon/statü emojileri, `[[audio_as_voice]]` sesli yanıt (TTS), görsel üretimi, çoklu agent yönlendirme, webhook teslimatı, subagent async (sessions_yield), vektör indeks için OpenAI dışı sağlayıcılar.
 

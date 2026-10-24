@@ -44,7 +44,14 @@ export function startTelegramPolling(): () => void {
             );
           }
         } catch (err) {
-          log(`bot=${botId} poll error: ${(err as Error).message}`);
+          const msg = (err as Error).message;
+          log(`bot=${botId} poll error: ${msg}`);
+          if (/401|Unauthorized/.test(msg)) {
+            // Token revoked or a dev placeholder: stop polling this bot until its token changes.
+            await db.bot.update({ where: { id: botId }, data: { lastError: `Telegram rejected the token: ${msg}`.slice(0, 1000), lastErrorAt: new Date() } }).catch(() => {});
+            running = false;
+            break;
+          }
           await new Promise((r) => setTimeout(r, 3000));
         }
       }

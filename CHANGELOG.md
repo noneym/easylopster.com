@@ -8,6 +8,20 @@ All notable changes to easylopster are documented here. The format follows
 
 ### Added
 - Cloudflare Email Service as the mail transport (`MAIL_MAILER=cloudflare`), with SMTP still available; styled verification email.
+- Conversational onboarding (OpenClaw-style BOOTSTRAP.md): a new bot's workspace ships with BOOTSTRAP.md,
+  creating a bot opens the web chat and the bot interviews the owner, then writes IDENTITY.md, SOUL.md,
+  USER.md and MEMORY.md itself and deletes BOOTSTRAP.md. SOUL.md/USER.md now live in the workspace
+  (the dashboard form mirrors them) and the bot may edit them on request.
+- Setup by conversation: `setup_keys` (list keys/models, switch model), `setup_mcp` (add with connection
+  test, link, unlink, remove), `setup_node` (pairing code + install instructions), `secrets` with
+  `set`/`link`/`unlink`/`remove` (pasted values are encrypted and scrubbed from the chat transcript),
+  `skill_import` (from a raw SKILL.md URL), `skill_delete`, `fs_delete`.
+- Skills page per bot in the dashboard: list from the workspace, create from template, import from URL,
+  edit, delete.
+- Web chat catch-up: a pending reply is fetched from the database if the live stream missed it.
+
+### Changed
+- Telegram polling stops polling a bot whose token Telegram rejects (401) and records the error on the bot; web chat keeps working.
 - Windows tray app `easylopster Node` (`packages/node-desktop`, Electron): pair with a code, pick the shared
   folder, see status and activity, start with Windows, native notifications; NSIS installer attached to
   GitHub Releases by the release workflow.

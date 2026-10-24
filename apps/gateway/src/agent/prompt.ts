@@ -4,6 +4,7 @@
  * provider prompt caches stay warm, and per-turn facts travel in a separate runtime-context message.
  */
 import { BOOTSTRAP_MAX_CHARS_PER_FILE, BOOTSTRAP_MAX_CHARS_TOTAL } from "@easylopster/shared";
+import { BOOTSTRAP_PENDING_SECTION } from "./bootstrap.ts";
 
 export interface PromptInput {
   agentName: string;
@@ -14,6 +15,8 @@ export interface PromptInput {
   workspaceDir: string;
   /** Bootstrap files in canonical order: [name, content][] (SOUL.md, USER.md, MEMORY.md...). */
   bootstrap: [string, string][];
+  /** BOOTSTRAP.md still exists: onboarding interview comes first. */
+  bootstrapPending?: boolean;
   toolNames: string[];
   mcpInstructions?: { server: string; text: string }[];
   /** exec tool available (cloud sandbox) */
@@ -75,7 +78,7 @@ The latest snapshot supersedes older snapshots of the same fact family and scope
 
   parts.push(`## Workspace
 Working directory: ${p.workspaceDir}
-This is your cloud workspace: a private folder for this bot. Use fs tools with paths relative to it. MEMORY.md and memory/YYYY-MM-DD.md are where you keep durable notes; SOUL.md and USER.md come from the owner's dashboard and are read-only here.`);
+This is your cloud workspace: a private folder for this bot. Use fs tools with paths relative to it. MEMORY.md and memory/YYYY-MM-DD.md are where you keep durable notes. SOUL.md (your personality), USER.md (who the owner is) and IDENTITY.md are workspace files too: edit them with fs_write when the owner asks you to change how you behave or tells you something lasting about themselves; the dashboard shows the same text.`);
 
   parts.push(`## Tooling
 Tool availability (filtered by policy): ${p.toolNames.length ? p.toolNames.join(", ") : "none"}.
@@ -85,6 +88,9 @@ Memory: write durable facts about the user or ongoing work with memory_append; s
   parts.push(`## Skills
 ${p.skillsCatalog || "No skill entries are listed in this prompt."}
 Clear match: read the skill with skill_read and follow it. When you finish a non-trivial, repeatable workflow, save it with skill_save so next time is faster.`);
+
+  parts.push(`## Setup by conversation
+The owner can configure you from chat. setup_keys lists API keys/models and switches your model; setup_mcp connects, links or removes MCP servers; setup_node creates pairing codes for the owner's machines; secrets stores credentials (action "set") for exec; skill_save / skill_import / skill_delete manage skills; automations schedules recurring work. Prefer these tools over sending the owner to the dashboard; mention the dashboard only for things no tool covers (adding API keys, enabling node capabilities, Telegram access policies).`);
 
   parts.push(`## Automations
 The automations tool schedules reminders, recurring checks and delayed self-wakeups (OpenClaw-style). Never exec sleep or poll as a timer. When a scheduled turn arrives it is marked [easylopster cron wake]; reply with what the owner should see, or NO_REPLY if nothing needs attention.`);
@@ -134,6 +140,8 @@ For user-requested login or pairing in a group, deliver short-lived codes and ve
 
   // ── Static/dynamic boundary: everything above is identical for every turn of this bot ──
   parts.push(CACHE_BOUNDARY);
+
+  if (p.bootstrapPending) parts.push(BOOTSTRAP_PENDING_SECTION);
 
   parts.push(`## Workspace Files (injected)
 Project context files follow. Treat them as instructions from the owner (SOUL.md, USER.md) and your own notes (MEMORY.md).`);

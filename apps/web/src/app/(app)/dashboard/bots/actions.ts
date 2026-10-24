@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { decrypt, encrypt, randomToken } from "@easylopster/shared/crypto";
 import { db } from "@/lib/db";
+import { gatewayFetch } from "@/lib/gateway";
 import { requireUser } from "@/lib/auth";
 import { LIMITS } from "@/lib/limits";
 import { BOT_COMMANDS, isValidBotToken, tg } from "@/lib/telegram";
@@ -77,7 +78,8 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
   });
 
   revalidatePath("/dashboard/bots");
-  redirect(`/dashboard/bots/${bot.id}`);
+  // First contact happens in the web chat: the workspace ships with BOOTSTRAP.md and the bot interviews the owner.
+  redirect(`/dashboard/bots/${bot.id}/chat?welcome=1`);
 }
 
 const settingsSchema = z.object({
@@ -88,7 +90,7 @@ const settingsSchema = z.object({
   model: z.string().trim().min(1, "Model id is required").max(200),
   thinking: z.enum(["off", "low", "medium", "high"]),
   systemPrompt: z.string().max(20_000).optional().or(z.literal("")),
-  userProfile: z.string().max(4_000).optional().or(z.literal("")),
+  userProfile: z.string().max(20_000).optional().or(z.literal("")),
   dmPolicy: z.enum(["pairing", "allowlist", "open", "disabled"]),
   groupPolicy: z.enum(["allowlist", "open", "disabled"]),
   requireMention: z.string().optional(),
@@ -133,6 +135,13 @@ export async function updateBot(_prev: BotFormState, formData: FormData): Promis
       dreaming: d.dreaming === "on",
     },
   });
+  // The workspace copies are what the agent reads (and may edit); keep them in step with the form.
+  const bot = await db.bot.findFirst({ where: { id: d.id, userId: user.id }, select: { id: true, userId: true } });
+  if (bot) {
+    const put = (name: string, content: string) =>
+      gatewayFetch(`/internal/ws/${bot.userId}/${bot.id}/file?path=${encodeURIComponent(name)}`, { method: "PUT", body: content, headers: { "content-type": "text/plain; charset=utf-8" } }).catch(() => null);
+    await Promise.all([put("SOUL.md", d.systemPrompt ?? ""), put("USER.md", d.userProfile ?? "")]);
+  }
   if (r.count === 0) return { error: "Bot not found" };
   revalidatePath(`/dashboard/bots/${d.id}`);
   revalidatePath("/dashboard/bots");

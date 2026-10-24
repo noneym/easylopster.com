@@ -1,11 +1,20 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
+import { db } from "@easylopster/db";
 import type { Workspace } from "../workspace/fs.ts";
 
 export interface ToolContext {
   ws: Workspace;
+  botId: string;
   timezone: string;
   now: () => Date;
+}
+
+/** SOUL.md / USER.md are mirrored into the bot row so the dashboard settings form shows the same text. */
+async function syncPersona(botId: string, rel: string, content: string) {
+  const name = rel.replace(/^\.?\//, "").toUpperCase();
+  if (name === "SOUL.MD") await db.bot.update({ where: { id: botId }, data: { systemPrompt: content.slice(0, 20_000) || null } }).catch(() => {});
+  if (name === "USER.MD") await db.bot.update({ where: { id: botId }, data: { userProfile: content.slice(0, 20_000) || null } }).catch(() => {});
 }
 
 /** Built-in tools available to every bot (fs over the cloud workspace, memory, web fetch, time). */
@@ -23,13 +32,25 @@ export function builtinTools(ctx: ToolContext): ToolSet {
       },
     }),
     fs_write: tool({
-      description: "Create or overwrite a text file in the workspace. Creates parent folders. SOUL.md and USER.md are read-only.",
+      description: "Create or overwrite a text file in the workspace. Creates parent folders. SOUL.md (your personality), USER.md (the owner) and IDENTITY.md are yours to edit when the owner asks or during bootstrap.",
       inputSchema: z.object({ path: z.string(), content: z.string() }),
       execute: async ({ path, content }) => {
-        if (/^(SOUL|USER)\.md$/i.test(path.replace(/^\.?\//, ""))) return { error: "SOUL.md and USER.md are edited by the owner in the dashboard." };
         try {
           await ctx.ws.write(path, content);
+          await syncPersona(ctx.botId, path, content);
           return { ok: true, path, bytes: Buffer.byteLength(content) };
+        } catch (e) {
+          return { error: (e as Error).message };
+        }
+      },
+    }),
+    fs_delete: tool({
+      description: "Delete a single file from the workspace (not folders). Use it to remove BOOTSTRAP.md when onboarding is complete, or files the owner asks you to remove.",
+      inputSchema: z.object({ path: z.string() }),
+      execute: async ({ path }) => {
+        try {
+          await ctx.ws.delete(path);
+          return { ok: true, path };
         } catch (e) {
           return { error: (e as Error).message };
         }

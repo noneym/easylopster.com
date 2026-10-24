@@ -56,6 +56,9 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
             <Link href={`/dashboard/bots/${bot.id}/files`} className="btn-secondary">
               Workspace
             </Link>
+            <Link href={`/dashboard/bots/${bot.id}/skills`} className="btn-secondary">
+              Skills
+            </Link>
             <Link href={`/dashboard/bots/${bot.id}/chat`} className="btn-secondary">
               Web chat
             </Link>

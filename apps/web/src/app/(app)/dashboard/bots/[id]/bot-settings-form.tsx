@@ -96,12 +96,12 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
         <Field
           label="Instructions (SOUL.md)"
           htmlFor="systemPrompt"
-          help="Who the assistant is, how it talks, what it cares about. Injected after the runtime instructions."
+          help="Who the assistant is, how it talks, what it cares about. Written by the bot during onboarding; edit freely here or ask the bot to change it."
         >
           <textarea id="systemPrompt" name="systemPrompt" defaultValue={bot.systemPrompt} rows={8} className="input h-auto py-2 font-mono text-sm leading-relaxed" />
         </Field>
-        <Field label="About you (USER.md)" htmlFor="userProfile" help="Name, timezone, preferences, projects. Max 4000 characters.">
-          <textarea id="userProfile" name="userProfile" defaultValue={bot.userProfile} rows={4} className="input h-auto py-2 font-mono text-sm leading-relaxed" maxLength={4000} />
+        <Field label="About you (USER.md)" htmlFor="userProfile" help="Name, timezone, preferences, projects. The bot fills this in during onboarding and may update it when you tell it lasting things.">
+          <textarea id="userProfile" name="userProfile" defaultValue={bot.userProfile} rows={4} className="input h-auto py-2 font-mono text-sm leading-relaxed" maxLength={20000} />
         </Field>
       </section>
 

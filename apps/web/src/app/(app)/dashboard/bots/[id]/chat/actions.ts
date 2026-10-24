@@ -24,6 +24,26 @@ export async function ensureWebConversation(botId: string) {
   return { conversationId: conv.id, messages: messages.map((m) => ({ id: m.id, role: m.role as "user" | "assistant", text: m.text ?? "", error: m.error })) };
 }
 
+/** Messages after a given id (or all). Used as a catch-up when the SSE stream missed the final event. */
+export async function listWebMessages(botId: string, conversationId: string, afterId?: string) {
+  const user = await requireUser();
+  const conv = await db.conversation.findFirst({ where: { id: conversationId, botId, bot: { userId: user.id } }, select: { id: true } });
+  if (!conv) return { messages: [] as { id: string; role: "user" | "assistant"; text: string; error: string | null; createdAt: string }[], busy: false };
+  const after = afterId ? await db.message.findUnique({ where: { id: afterId }, select: { createdAt: true } }) : null;
+  const rows = await db.message.findMany({
+    where: { conversationId: conv.id, role: { in: ["user", "assistant"] }, ...(after ? { createdAt: { gt: after.createdAt } } : {}) },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    select: { id: true, role: true, text: true, error: true, createdAt: true },
+  });
+  const last = await db.message.findFirst({ where: { conversationId: conv.id, role: { in: ["user", "assistant"] } }, orderBy: { createdAt: "desc" }, select: { role: true, error: true } });
+  return {
+    messages: rows.map((m) => ({ id: m.id, role: m.role as "user" | "assistant", text: m.text ?? "", error: m.error, createdAt: m.createdAt.toISOString() })),
+    // A run is still in flight when the newest row is the user's message without an error.
+    busy: !!last && last.role === "user" && !last.error,
+  };
+}
+
 export async function sendWebMessage(botId: string, conversationId: string, text: string) {
   const user = await requireUser();
   const parsed = z.string().trim().min(1).max(20_000).safeParse(text);

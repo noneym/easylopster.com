@@ -1,6 +1,7 @@
-import { mkdir, readFile, readdir, stat, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile, appendFile, unlink, access } from "node:fs/promises";
 import path from "node:path";
 import { env } from "../env.ts";
+import { BOOTSTRAP_MD } from "../agent/bootstrap.ts";
 
 /**
  * Cloud workspace: one directory per bot under WORKSPACE_ROOT/<userId>/<botId>.
@@ -13,8 +14,28 @@ export class Workspace {
     this.root = path.resolve(env().WORKSPACE_ROOT, userId, botId);
   }
 
+  /** Creates the folder tree; a brand-new workspace gets BOOTSTRAP.md so the first chat is an onboarding interview. */
   async ensure() {
+    const fresh = !(await this.exists("."));
     await mkdir(path.join(this.root, "memory"), { recursive: true });
+    if (fresh) await this.write("BOOTSTRAP.md", BOOTSTRAP_MD);
+  }
+
+  async exists(rel: string): Promise<boolean> {
+    try {
+      await access(this.resolve(rel));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Deletes a single file (never directories). */
+  async delete(rel: string) {
+    const abs = this.resolve(rel);
+    const s = await stat(abs);
+    if (!s.isFile()) throw new Error(`${rel} is not a file`);
+    await unlink(abs);
   }
 
   resolve(rel: string): string {

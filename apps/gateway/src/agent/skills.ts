@@ -91,5 +91,38 @@ export function skillTools(ws: Workspace, skills: SkillInfo[]): ToolSet {
         return { ok: true, path: rel };
       },
     }),
+    skill_import: tool({
+      description: "Import a skill from a public URL pointing at a SKILL.md (or raw Markdown). Saves it under skills/<slug>/SKILL.md, adding frontmatter when missing.",
+      inputSchema: z.object({ url: z.string().url(), slug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,40}$/).optional() }),
+      execute: async ({ url, slug }) => {
+        if (!/^https?:\/\//i.test(url)) return { error: "Only http(s) URLs" };
+        try {
+          const res = await fetch(url, { signal: AbortSignal.timeout(15_000), headers: { accept: "text/plain, text/markdown, */*" } });
+          if (!res.ok) return { error: `HTTP ${res.status}` };
+          const text = (await res.text()).slice(0, 40_000);
+          if (!text.trim() || /^\s*</.test(text)) return { error: "That URL does not look like a Markdown file (use the raw file URL)." };
+          const fm = parseFrontmatter(text);
+          const guess = (fm.name ?? url.split("/").filter((x) => x && !/^SKILL\.md$/i.test(x)).pop() ?? "skill").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "skill";
+          const finalSlug = slug ?? guess;
+          const firstLine = (fm.body.split("\n").find((l) => l.trim() && !l.startsWith("#")) ?? "Imported skill").trim().slice(0, 200);
+          const body = fm.name ? text : `---\nname: ${guess}\ndescription: ${firstLine}\n---\n\n${text}`;
+          const rel = `skills/${finalSlug}/SKILL.md`;
+          await ws.write(rel, body.trim() + "\n");
+          return { ok: true, path: rel, name: fm.name ?? guess };
+        } catch (e) {
+          return { error: (e as Error).message };
+        }
+      },
+    }),
+    skill_delete: tool({
+      description: "Delete a skill by name (removes skills/<slug>/SKILL.md). Only when the owner asks.",
+      inputSchema: z.object({ name: z.string().min(1) }),
+      execute: async ({ name }) => {
+        const s = skills.find((x) => x.name.toLowerCase() === name.toLowerCase()) ?? skills.find((x) => x.location.toLowerCase().includes(name.toLowerCase()));
+        if (!s) return { error: `No skill named ${name}` };
+        await ws.delete(s.location);
+        return { ok: true, removed: s.name };
+      },
+    }),
   };
 }

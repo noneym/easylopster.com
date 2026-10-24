@@ -21,7 +21,7 @@ export default async function BotFilesPage({ params, searchParams }: PageProps<"
       <div className="flex items-center justify-between py-4 border-b border-line">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">{bot.name} · workspace</h1>
-          <p className="text-xs text-fg-muted">MEMORY.md and memory/ are the bot's own notes; skills/ holds reusable SKILL.md procedures. SOUL.md and USER.md are edited in settings.</p>
+          <p className="text-xs text-fg-muted">MEMORY.md and memory/ are the bot's own notes; skills/ holds reusable SKILL.md procedures. SOUL.md, USER.md and IDENTITY.md are the persona files the bot wrote during onboarding (also editable in settings).</p>
         </div>
         <Link href={`/dashboard/bots/${bot.id}`} className="btn-ghost h-9">
           Settings
