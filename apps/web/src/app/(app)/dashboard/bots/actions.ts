@@ -233,3 +233,25 @@ export async function deleteBot(id: string) {
   revalidatePath("/dashboard/bots");
   redirect("/dashboard/bots");
 }
+
+export type ModelTestResult = { ok: boolean; ms: number; reply?: string; error?: string; model?: string };
+
+/** Sends one tiny prompt through the gateway with the chosen key + model to prove the pair answers. */
+export async function testModel(keyId: string, model: string, thinking = "off"): Promise<ModelTestResult> {
+  const user = await requireUser();
+  const key = await db.providerKey.findFirst({ where: { id: keyId, userId: user.id }, select: { id: true } });
+  if (!key) return { ok: false, ms: 0, error: "Key not found" };
+  if (!model.trim()) return { ok: false, ms: 0, error: "Pick a model first" };
+  try {
+    const r = await gatewayFetch("/internal/model/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ keyId: key.id, model: model.trim(), thinking }),
+      timeoutMs: 30_000,
+    });
+    if (!r.ok) return { ok: false, ms: 0, error: `Gateway answered ${r.status}` };
+    return (await r.json()) as ModelTestResult;
+  } catch (err) {
+    return { ok: false, ms: 0, error: `Gateway unreachable: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}

@@ -2,6 +2,10 @@ import http from "node:http";
 import { Worker, type Job } from "bullmq";
 import { APP_VERSION, QUEUES, queuePrefix } from "@easylopster/shared";
 import { db } from "@easylopster/db";
+import { generateText } from "ai";
+import { resolveModel } from "./agent/providers.ts";
+
+const MODEL_TEST_TIMEOUT_MS = 25_000;
 import { env } from "./env.ts";
 import { createRedis, redis } from "./redis.ts";
 import { attachNodeServer } from "./nodes/server.ts";
@@ -35,6 +39,32 @@ async function main() {
       if (url.pathname === "/internal/nodes/online") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ nodes: nodeServer.onlineNodeIds() }));
+        return;
+      }
+      // Model probe for the dashboard: POST {keyId, model, thinking?} -> does this key+model answer?
+      if (url.pathname === "/internal/model/test" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        const started = Date.now();
+        try {
+          const { keyId, model, thinking } = JSON.parse(body || "{}") as { keyId?: string; model?: string; thinking?: string };
+          const key = keyId ? await db.providerKey.findUnique({ where: { id: keyId } }) : null;
+          if (!key || !model) throw new Error("key or model missing");
+          const resolved = resolveModel(key, String(model), thinking ?? "off");
+          const r = await generateText({
+            model: resolved.model,
+            prompt: "Reply with the single word OK.",
+            providerOptions: resolved.providerOptions as never,
+            maxRetries: 0,
+            abortSignal: AbortSignal.timeout(MODEL_TEST_TIMEOUT_MS),
+          });
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ ok: true, ms: Date.now() - started, reply: r.text.trim().slice(0, 120), model: resolved.identity, tokens: (r.usage?.inputTokens ?? 0) + (r.usage?.outputTokens ?? 0) }));
+        } catch (err) {
+          const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ ok: false, ms: Date.now() - started, error: timedOut ? `No answer within ${MODEL_TEST_TIMEOUT_MS / 1000}s` : (err as Error).message.slice(0, 400) }));
+        }
         return;
       }
       // Operator smoke test for the cloud sandbox: POST {userId, botId, command}

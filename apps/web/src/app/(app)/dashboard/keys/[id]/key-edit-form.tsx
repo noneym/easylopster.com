@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateKey, type KeyFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
+import { ModelTestButton } from "@/components/app/model-test-button";
 
 export function KeyEditForm({ id, label, defaultModel, models }: { id: string; label: string; defaultModel: string; models: string[] }) {
   const [state, action, pending] = useActionState<KeyFormState, FormData>(updateKey, undefined);
@@ -22,6 +23,7 @@ export function KeyEditForm({ id, label, defaultModel, models }: { id: string; l
           Default model
         </label>
         <ModelSelect id="defaultModel" name="defaultModel" models={models} value={model} onChange={setModel} required />
+        <ModelTestButton keyId={id} model={model} />
         <p className="help">{models.length} models known for this key. "Test again" refreshes the list.</p>
         {state?.fieldErrors?.defaultModel && <p className="error">{state.fieldErrors.defaultModel}</p>}
       </div>

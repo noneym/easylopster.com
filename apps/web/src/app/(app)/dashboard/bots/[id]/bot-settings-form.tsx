@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateBot, type BotFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
+import { ModelTestButton } from "@/components/app/model-test-button";
 
 type KeyOpt = { id: string; label: string; defaultModel: string; models: string[] };
 type BotValues = {
@@ -79,6 +80,7 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
           </Field>
           <Field label="Model" htmlFor="model" error={fe.model}>
             <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} required />
+            <ModelTestButton keyId={keyId} model={model} />
           </Field>
           <Field label="Thinking" htmlFor="thinking" help="Extended reasoning where the model supports it.">
             <select id="thinking" name="thinking" defaultValue={bot.thinking} className="input">

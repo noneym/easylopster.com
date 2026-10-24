@@ -6,6 +6,11 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- "Test this model" next to the model picker (bot settings and API key page): one tiny prompt
+  through the gateway shows the latency and reply, or the provider's error / a 25 s timeout, so
+  broken models on a provider are caught before a bot is pointed at them.
+
 ### Fixed
 - Icon-only buttons (theme toggle, mobile sign-out) rendered a 2px icon because the shared button
   padding overrode `px-0`; the theme toggle is now a bordered 36px button with a bold icon.
