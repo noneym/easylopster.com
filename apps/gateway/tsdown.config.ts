@@ -8,5 +8,5 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   // Bundle our workspace packages (they ship TS sources), keep npm deps external.
-  noExternal: ["@easylopster/shared", "@easylopster/db"],
+  noExternal: [/^@easylopster//],
 });
