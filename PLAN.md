@@ -113,6 +113,13 @@ easyclaw/
 
 `DATABASE_URL`, `REDIS_URL`, `ENCRYPTION_KEY` (32 byte base64), `APP_URL=https://easylopster.com`, `SESSION_SECRET`, `SMTP_*`, `GATEWAY_WS_URL=wss://gw.easylopster.com`, `BETA_LIMITS_*`.
 
+## 5b. Durum (24 Ekim 2026)
+
+- Faz 0, 1, 2 tamam; canlıda: https://easylopster.com (web) + wss://gw.easylopster.com (gateway, node WS + health).
+- dockxo: `web.easylopster` ve `gateway.easylopster` GitHub'dan Dockerfile ile build olur; `main`'e push otomatik deploy eder.
+- Telegram ucu gerçek bir bot token'ı ile henüz uçtan uca test edilmedi (web chat ucu test edildi: tool çağrıları, workspace dosyaları, hafıza notu, zaman dilimi çalışıyor).
+- Sıradaki: Faz 2 devamı (dashboard dosya tarayıcısı/editör, gateway internal HTTP API), Faz 3 MCP, 3b sandbox exec, 4 node ajanı + Docker imajı.
+
 ## 6. Notlar / riskler
 
 - Lokal Node 22; Next 16 için yeterli. Prod imaj `node:22-alpine`.
