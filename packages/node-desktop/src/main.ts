@@ -32,7 +32,9 @@ let settings: DesktopSettings = { autostart: false, browser: false };
 let browser: BrowserController | null = null;
 let status: AgentStatus = { state: "stopped", since: Date.now() };
 const logs: string[] = [];
-const configPath = defaultConfigPath();
+// Dev runs (`electron .`) must never touch the installed app's config (~/.easylopster/node.json):
+// they get their own file unless EASYLOPSTER_CONFIG says otherwise.
+const configPath = process.env.EASYLOPSTER_CONFIG ?? (app.isPackaged ? defaultConfigPath() : path.join(app.getPath("userData"), "node.dev.json"));
 const settingsPath = () => path.join(app.getPath("userData"), "desktop.json");
 const logPath = () => path.join(app.getPath("userData"), "node.log");
 
