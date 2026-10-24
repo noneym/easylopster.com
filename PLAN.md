@@ -72,64 +72,10 @@
 
 Tool router her çağrıda "bu tool nerede çalışacak" kararını botun ayarına göre verir (bulut → sandbox → node). Katman 3'ün Docker imajı aynı repodan GitHub Actions ile `ghcr.io/noneym/easylopster-node` olarak yayınlanır.
 
-### OpenClaw'dan taşınan davranışlar (kod değil, mantık)
-- Sistem promptu bölümleri: Tooling, Execution Bias, Promised Work, Care, Messaging, Workspace, Runtime, Silent Replies, Group Chat Context, Reactions. Kaynak: `buildAgentSystemPrompt` + prompt snapshot fixture'ları.
-- Değişken bilgiler (tarih, saat dilimi, aktif işler) sistem promptunda değil ayrı runtime-context mesajında → prompt cache sabit kalır.
-- Bootstrap dosyaları (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`) ve limitleri (20k/dosya, 60k toplam); bizde dosyalar bulut workspace'te, dashboarddan düzenlenir.
-- Oturum modeli: DM'ler ana oturumu paylaşır, her grup ayrı, forum topic ayrı anahtar; compaction/pruning.
-- Erişim: `dmPolicy=pairing` varsayılan, allowlist, gruplarda mention; tool politikası promptta değil runtime'da.
-- Telegram: streaming modları (off/partial/block/progress), inline buton aksiyonları, exec onayları, reply threading.
-- Alınmayanlar: CLI onboarding, Tailscale, macOS Canvas, lokal daemon.
+### OpenClaw paritesi (24 Ekim 2026 itibarıyla)
+Yapıldı: automations + heartbeat, standing intents, subagents (sessions_spawn, tek seviye), dreaming (04:00 yerel), Telegram medya giriş/çıkış (foto/ses/dosya/video, `MEDIA:`), web_search (Brave/DuckDuckGo), `/think /usage /compact /activation`, düzenlenen mesajlar, ack reaksiyonu, grup geçmiş penceresi, günlük/boşta oturum sıfırlama, hibrit vektör hafıza (OpenAI embedding varsa), konuşma listesi/transkript/arama, kullanım sayfası, e-posta doğrulama (SMTP ile), Google ile giriş (env ile).
 
-## 3. Fazlar
-
-| Faz | Kapsam | Çıktı |
-|---|---|---|
-| **0 İskelet** | pnpm monorepo, Next 16, Prisma şema + ilk migration (uzak MariaDB), Redis, Dockerfile x2, `.env.example`, lint/tsc | Ayağa kalkan `web` + `gateway` |
-| **1 Auth + Landing + Shell** | Kayıt/giriş/doğrulama, dashboard layout, **landing (design-taste-frontend, SSR)**, boş durum ekranları | Üyelik açılabiliyor |
-| **2 API Key + Telegram + Agent** | ProviderKey CRUD + test, Bot CRUD + webhook, pairing, agent loop, Telegram streaming cevap, web chat, usage | Kurulumsuz çalışan Telegram asistanı (çekirdek değer) |
-| **2 (devam)** | Bulut workspace: volume, `fs.*` tool'ları, dashboard dosya tarayıcı/editör, memory günlükleri, SOUL/USER/MEMORY düzenleme | Agent dosya ve hafıza kullanıyor |
-| **3 MCP** | McpServer CRUD, bağlantı testi + tool keşfi, bot başına MCP seçimi, tool-call enjeksiyonu, timeout yönetimi | MCP destekli botlar |
-| **3b Sandbox exec** | Docker API ile bot başına kısa ömürlü container, `exec` tool'u, kotalar, stdio MCP köprüsü | Bulutta kabuk |
-| **4 Node** | WS sunucusu, pairing kodu, `easylopster-node` CLI (Windows exe) + `ghcr.io/noneym/easylopster-node` Docker imajı (self-host dosya sistemi), `exec`, `fs.*`, `screen.snapshot`, `notify`; onay akışı | "Kendi makinene / sunucuna bağlan" |
-| **5 Deploy + Cila** | dockxo: `web.easylopster` + `gateway.easylopster` (GitHub → Dockerfile), env'ler, domain easylopster.com, health check | Canlı beta |
-
-Her faz sonunda commit + push (`noneym/easylopster.com`), Faz 5'te dockxo deploy.
-
-## 4. Repo yerleşimi
-
-```
-easyclaw/
-  apps/web/            Next.js 16
-  apps/gateway/        worker + WS server
-  packages/db/         prisma schema, client, migrations
-  packages/shared/     zod, crypto, constants, provider registry
-  packages/node-agent/ CLI (Windows/mac/Linux)
-  docker/              web.Dockerfile, gateway.Dockerfile
-  PLAN.md
-```
-
-## 5. Ortam değişkenleri
-
-`DATABASE_URL`, `REDIS_URL`, `ENCRYPTION_KEY` (32 byte base64), `APP_URL=https://easylopster.com`, `SESSION_SECRET`, `SMTP_*`, `GATEWAY_WS_URL=wss://gw.easylopster.com`, `BETA_LIMITS_*`.
-
-## 5b. Durum (24 Ekim 2026, sabah)
-
-- Faz 0-4 + ek: workspace dosya editörü, secrets kasası (exec env enjeksiyonu), skills (SKILL.md kataloğu, skill_read/skill_save), hafıza tool'ları (memory_search/memory_get, otomatik recall, compaction öncesi flush). Hepsi lokalde uçtan uca doğrulandı; `main`'de.
-- Canlı: https://easylopster.com + wss://gw.easylopster.com. Faz 3b sandbox exec canlıda `/var/run/docker.sock` mount'unu bekliyor.
-- Lokal geliştirme prod Redis/DB'yi paylaşır: `QUEUE_PREFIX=dev` zorunlu (yoksa prod gateway lokal işleri kapar).
-
-### OpenClaw'a göre eksikler (backlog, öncelik sırasıyla)
-1. ~~Automations / cron + heartbeat~~ YAPILDI: `Automation` modeli (at/every/cron), gateway zamanlayıcı (20 sn), `automations` tool'u, dashboard bölümü, tek tıkla heartbeat ("Proactive check" 30 dk, idleOnly, NO_REPLY sessiz), sahibe Telegram DM / web chat teslimi.
-2. **Standing intents** (`intent` tool'u): olay tetiklemeli hatırlatıcılar ("X konusu açılınca şunu söyle").
-3. **Subagents** (`sessions_spawn` / `sessions_yield`): ayrı bağlamda yan görev; bizde tek koşu var.
-4. **Dreaming**: arka planda günlük notlardan MEMORY.md'ye terfi (cron job + DREAMS.md).
-5. **Medya girişi**: Telegram'dan gelen fotoğraf/ses/dosyaların workspace'e indirilmesi, görsel anlama ve ses transkripsiyonu; `MEDIA:` ile dosya gönderme, `[[audio_as_voice]]`.
-6. **Web search** tool'u (şu an sadece web_fetch) ve `image` analizi.
-7. **Tam Telegram paritesi**: `edited_message`, reaksiyonlar (ack 👀, statü), forum topic başına agent, `/think`, `/usage`, `/compact`, `/activation`, inline buton aksiyonları (approval dışında), grup geçmiş penceresi (historyLimit).
-8. **Vektör hafıza**: embedding tabanlı arama (şimdi BM25-benzeri anahtar kelime).
-9. **Session yönetimi**: idle/daily reset politikaları, `/session`, dashboard'da konuşma geçmişi görüntüleme ve arama (`sessions_search`).
-10. **Kullanım sayfası** (token/maliyet), e-posta doğrulama (SMTP), Google OAuth.
+Kalanlar (düşük öncelik): forum topic başına ayrı agent, Telegram grup reaksiyon/statü emojileri, `[[audio_as_voice]]` sesli yanıt (TTS), görsel üretimi, çoklu agent yönlendirme, webhook teslimatı, subagent async (sessions_yield), vektör indeks için OpenAI dışı sağlayıcılar.
 
 ## 6. Notlar / riskler
 
