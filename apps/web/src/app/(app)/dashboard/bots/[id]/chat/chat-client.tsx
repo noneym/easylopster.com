@@ -6,7 +6,7 @@ import { decideWebApproval, listWebMessages, resetWebConversation, sendWebMessag
 import { Markdown } from "@/components/app/markdown";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
-type Approval = { id: string; target?: string; preview?: string; status: string };
+type Approval = { id: string; target?: string; preview?: string; status: string; canAlways?: boolean };
 
 export function ChatClient({ botId, conversationId: initialConv, initial, initialBusy = false }: { botId: string; conversationId: string; initial: Msg[]; initialBusy?: boolean }) {
   const [conversationId, setConversationId] = useState(initialConv);
@@ -25,13 +25,13 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
     const es = new EventSource(`/api/chat/${conversationId}/stream`);
     esRef.current = es;
     es.onmessage = (e) => {
-      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string };
+      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string; canAlways?: boolean };
       if (ev.type === "delta") {
         setStreamText(ev.text ?? "");
       } else if (ev.type === "approval" && ev.id) {
         setApprovals((prev) => {
           const i = prev.findIndex((a) => a.id === ev.id);
-          const next: Approval = { id: ev.id!, target: ev.target ?? prev[i]?.target, preview: ev.preview ?? prev[i]?.preview, status: ev.status ?? "pending" };
+          const next: Approval = { id: ev.id!, target: ev.target ?? prev[i]?.target, preview: ev.preview ?? prev[i]?.preview, status: ev.status ?? "pending", canAlways: ev.canAlways ?? prev[i]?.canAlways };
           return i >= 0 ? prev.map((a) => (a.id === ev.id ? next : a)) : [...prev, next];
         });
       } else if (ev.type === "tool") {
@@ -140,6 +140,11 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
                   <button type="button" className="btn-primary h-8" onClick={() => start(async () => void (await decideWebApproval(botId, a.id, "approved")))}>
                     Allow once
                   </button>
+                  {a.canAlways && (
+                    <button type="button" className="btn-secondary h-8" title="Never ask again for this action on this node" onClick={() => start(async () => void (await decideWebApproval(botId, a.id, "always")))}>
+                      Always allow
+                    </button>
+                  )}
                   <button type="button" className="btn-secondary h-8" onClick={() => start(async () => void (await decideWebApproval(botId, a.id, "denied")))}>
                     Deny
                   </button>

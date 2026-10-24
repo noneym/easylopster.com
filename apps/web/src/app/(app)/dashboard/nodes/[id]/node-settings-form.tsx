@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { updateNode, type NodeFormState } from "../actions";
 
-export function NodeSettingsForm({ node, caps }: { node: { id: string; name: string; execApproval: string }; caps: { id: string; label: string; enabled: boolean }[] }) {
+export function NodeSettingsForm({ node, caps, autoApprove, clearAutoApprove }: { node: { id: string; name: string; execApproval: string }; caps: { id: string; label: string; enabled: boolean }[]; autoApprove: string[]; clearAutoApprove: (cap: string) => Promise<void> }) {
   const [state, action, pending] = useActionState<NodeFormState, FormData>(updateNode, undefined);
   return (
     <form action={action} className="card p-6 space-y-6" noValidate>
@@ -43,7 +43,23 @@ export function NodeSettingsForm({ node, caps }: { node: { id: string; name: str
           <option value="always">Ask me in chat before each command</option>
           <option value="never">Run without asking</option>
         </select>
-        <p className="help">With approval on, the bot shows the exact command (or the page to open, element to click, text to type) and waits for your Allow / Deny tap (5 minutes). Reading pages, screenshots and tab lists never ask.</p>
+        <p className="help">With approval on, the bot shows the exact command (or the page to open, element to click, text to type) and waits for your Allow once / Always / Deny tap (5 minutes). Reading pages, screenshots and tab lists never ask.</p>
+        {autoApprove.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium">Always allowed on this node</p>
+            <ul className="mt-1.5 flex flex-wrap gap-2">
+              {autoApprove.map((cap) => (
+                <li key={cap} className="inline-flex items-center gap-1.5 rounded-md border border-line bg-bg-sunk px-2 py-1 text-xs font-mono">
+                  {cap}
+                  <button type="button" className="text-fg-muted hover:text-accent-ink" title="Ask again" onClick={() => void clearAutoApprove(cap)}>
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="help">Answered “Always” in chat. Remove one to be asked again.</p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

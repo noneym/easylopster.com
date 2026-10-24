@@ -23,11 +23,13 @@ export interface ApprovalRequest {
   /** One-line preview shown to the user (the exact command). */
   preview: string;
   channel: ApprovalChannel;
+  /** "node:<nodeId>:<capability>": lets the owner answer "Always allow" for this action on this node. */
+  scopeKey?: string;
 }
 
 export type ApprovalDecision = "approved" | "denied" | "expired";
 
-export function approvalCallbackData(id: string, decision: "allow" | "deny") {
+export function approvalCallbackData(id: string, decision: "allow" | "always" | "deny") {
   return `apr:${id}:${decision}`;
 }
 
@@ -39,6 +41,7 @@ export async function requestApproval(req: ApprovalRequest): Promise<ApprovalDec
       toolName: req.toolName,
       args: req.args as never,
       target: req.target,
+      scopeKey: req.scopeKey,
       expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
     },
   });
@@ -53,6 +56,7 @@ export async function requestApproval(req: ApprovalRequest): Promise<ApprovalDec
           inline_keyboard: [
             [
               { text: "✅ Allow once", callback_data: approvalCallbackData(row.id, "allow") },
+              ...(req.scopeKey ? [{ text: "♾️ Always", callback_data: approvalCallbackData(row.id, "always") }] : []),
               { text: "⛔ Deny", callback_data: approvalCallbackData(row.id, "deny") },
             ],
           ],
@@ -62,7 +66,7 @@ export async function requestApproval(req: ApprovalRequest): Promise<ApprovalDec
     await db.toolApproval.update({ where: { id: row.id }, data: { channel: { kind: "telegram", chatId: String(req.channel.chatId), messageId: m?.message_id ?? null } } });
   } else {
     await db.toolApproval.update({ where: { id: row.id }, data: { channel: { kind: "web" } } });
-    await publishChat(req.channel.conversationId, { type: "approval", id: row.id, target: req.target, preview: req.preview, status: "pending" } as never);
+    await publishChat(req.channel.conversationId, { type: "approval", id: row.id, target: req.target, preview: req.preview, status: "pending", canAlways: !!req.scopeKey } as never);
   }
 
   // Poll until decided or expired.
@@ -84,11 +88,25 @@ export async function requestApproval(req: ApprovalRequest): Promise<ApprovalDec
 }
 
 /** Called by the Telegram callback handler / web action. Returns false when the id is unknown or already decided. */
-export async function decideApproval(id: string, decision: "approved" | "denied", decidedBy: string): Promise<boolean> {
+export async function decideApproval(id: string, decision: "approved" | "denied", decidedBy: string, always = false): Promise<boolean> {
   const r = await db.toolApproval.updateMany({ where: { id, status: "pending", expiresAt: { gt: new Date() } }, data: { status: decision, decidedBy, decidedAt: new Date() } });
   if (r.count === 0) return false;
+  if (decision === "approved" && always) await rememberAlways(id);
   await notifyOutcome(id, decision);
   return true;
+}
+
+/** "Always allow": add the capability to the node's autoApprove list so the next call skips the prompt. */
+export async function rememberAlways(approvalId: string): Promise<string | null> {
+  const row = await db.toolApproval.findUnique({ where: { id: approvalId }, select: { scopeKey: true } });
+  const m = row?.scopeKey?.match(/^node:([^:]+):(.+)$/);
+  if (!m) return null;
+  const node = await db.node.findUnique({ where: { id: m[1]! }, select: { autoApprove: true } });
+  if (!node) return null;
+  const list = new Set(Array.isArray(node.autoApprove) ? (node.autoApprove as string[]) : []);
+  list.add(m[2]!);
+  await db.node.update({ where: { id: m[1]! }, data: { autoApprove: [...list] } });
+  return m[2]!;
 }
 
 async function notifyOutcome(id: string, outcome: ApprovalDecision) {

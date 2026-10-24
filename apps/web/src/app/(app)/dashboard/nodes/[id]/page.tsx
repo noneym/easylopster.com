@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { deleteNode, onlineNodeIds, renewPairing, revokeNode } from "../actions";
+import { clearAutoApprove, deleteNode, onlineNodeIds, renewPairing, revokeNode } from "../actions";
 import { NodeSettingsForm } from "./node-settings-form";
 
 export const metadata = { title: "Node" };
@@ -95,6 +95,8 @@ export default async function NodeDetailPage({ params }: PageProps<"/dashboard/n
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <NodeSettingsForm
           node={{ id: node.id, name: node.name, execApproval: node.execApproval }}
+          autoApprove={Array.isArray(node.autoApprove) ? (node.autoApprove as string[]) : []}
+          clearAutoApprove={clearAutoApprove.bind(null, node.id)}
           caps={declared.map((c) => ({ id: c, label: CAP_LABELS[c] ?? c, enabled: enabled.has(c) }))}
         />
         <aside className="space-y-4">

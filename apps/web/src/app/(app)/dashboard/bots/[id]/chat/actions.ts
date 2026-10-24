@@ -60,11 +60,21 @@ export async function sendWebMessage(botId: string, conversationId: string, text
   return { ok: true };
 }
 
-export async function decideWebApproval(botId: string, approvalId: string, decision: "approved" | "denied") {
+export async function decideWebApproval(botId: string, approvalId: string, decision: "approved" | "denied" | "always") {
   const user = await requireUser();
   const row = await db.toolApproval.findFirst({ where: { id: approvalId, botId, bot: { userId: user.id } } });
   if (!row || row.status !== "pending") return { ok: false };
-  await db.toolApproval.update({ where: { id: approvalId }, data: { status: decision, decidedBy: "web", decidedAt: new Date() } });
+  await db.toolApproval.update({ where: { id: approvalId }, data: { status: decision === "denied" ? "denied" : "approved", decidedBy: "web", decidedAt: new Date() } });
+  // "Always allow": remember the capability on the node so the next call skips the prompt.
+  const m = decision === "always" ? row.scopeKey?.match(/^node:([^:]+):(.+)$/) : null;
+  if (m) {
+    const node = await db.node.findFirst({ where: { id: m[1]!, userId: user.id }, select: { autoApprove: true } });
+    if (node) {
+      const list = new Set(Array.isArray(node.autoApprove) ? (node.autoApprove as string[]) : []);
+      list.add(m[2]!);
+      await db.node.update({ where: { id: m[1]! }, data: { autoApprove: [...list] } });
+    }
+  }
   return { ok: true };
 }
 

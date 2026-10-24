@@ -13,6 +13,9 @@ All notable changes to easylopster are documented here. The format follows
   create a "Proactive check" automation that follows HEARTBEAT.md. Persona files are mirrored into
   settings and BOOTSTRAP.md is removed so the imported bot skips the first-run interview. TOOLS.md
   is now loaded as workspace context like AGENTS.md and IDENTITY.md. Large imports go up in batches of 120 files (up to 2000 files / 50 MB).
+- "Always allow" answer on node approvals (Telegram button and web chat): the action (exec,
+  browser.open, browser.click, browser.type) stops asking on that node; the node page lists these
+  and lets you remove one to be asked again.
 - "Test this model" next to the model picker (bot settings and API key page): one tiny prompt
   through the gateway shows the latency and reply, or the provider's error / a 25 s timeout, so
   broken models on a provider are caught before a bot is pointed at them.

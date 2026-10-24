@@ -61,6 +61,16 @@ export async function updateNode(_prev: NodeFormState, formData: FormData): Prom
   return { ok: true, message: "Saved." };
 }
 
+/** Removes one "Always allow" entry so that action asks again. */
+export async function clearAutoApprove(id: string, cap: string) {
+  const user = await requireUser();
+  const node = await db.node.findFirst({ where: { id, userId: user.id }, select: { autoApprove: true } });
+  if (!node) return;
+  const list = (Array.isArray(node.autoApprove) ? (node.autoApprove as string[]) : []).filter((c) => c !== cap);
+  await db.node.update({ where: { id }, data: { autoApprove: list } });
+  revalidatePath(`/dashboard/nodes/${id}`);
+}
+
 export async function revokeNode(id: string) {
   const user = await requireUser();
   await db.node.updateMany({ where: { id, userId: user.id }, data: { status: "revoked", tokenHash: null, pairingCode: null, pairingExpiresAt: null } });

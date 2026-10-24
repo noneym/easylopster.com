@@ -421,7 +421,7 @@ async function handleCallback(bot: BotFull, cq: TgCallbackQuery): Promise<void> 
   const tg = new TelegramSender(decrypt(bot.encToken));
   const answer = (text: string) => tg.api.answerCallbackQuery(cq.id, { text, show_alert: false }).catch(() => {});
   const data = cq.data ?? "";
-  const m = data.match(/^apr:([a-z0-9]+):(allow|deny)$/i);
+  const m = data.match(/^apr:([a-z0-9]+):(allow|always|deny)$/i);
   if (!m) {
     await answer("Unknown action");
     return;
@@ -431,6 +431,7 @@ async function handleCallback(bot: BotFull, cq: TgCallbackQuery): Promise<void> 
     await answer("Only the bot owner can decide this.");
     return;
   }
-  const ok = await decideApproval(m[1]!, m[2]!.toLowerCase() === "allow" ? "approved" : "denied", String(cq.from.id));
-  await answer(ok ? (m[2]!.toLowerCase() === "allow" ? "Allowed" : "Denied") : "Already decided or expired");
+  const choice = m[2]!.toLowerCase();
+  const ok = await decideApproval(m[1]!, choice === "deny" ? "denied" : "approved", String(cq.from.id), choice === "always");
+  await answer(ok ? (choice === "always" ? "Allowed, and remembered for this node" : choice === "allow" ? "Allowed" : "Denied") : "Already decided or expired");
 }

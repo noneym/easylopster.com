@@ -102,10 +102,12 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
       });
     }
     const needsApproval = node.execApproval !== "never";
+    const autoApprove = new Set(Array.isArray(node.autoApprove) ? (node.autoApprove as string[]) : []);
     /** Owner approval in chat (same flow as exec); returns an error object to hand back to the model when not approved. */
-    const approve = async (toolName: string, args: Record<string, unknown>, preview: string): Promise<{ error: string } | null> => {
+    const approve = async (toolName: string, args: Record<string, unknown>, preview: string, cap: string): Promise<{ error: string } | null> => {
+      if (autoApprove.has(cap)) return null; // the owner answered "Always allow" for this action on this node
       if (!ctx.channel) return { error: `No approval channel for this conversation; ${toolName} on this node needs owner approval.` };
-      const d: ApprovalDecision = await requestApproval({ botId: ctx.botId, conversationId: ctx.conversationId, toolName, args, target: `node:${node.name}`, preview, channel: ctx.channel });
+      const d: ApprovalDecision = await requestApproval({ botId: ctx.botId, conversationId: ctx.conversationId, toolName, args, target: `node:${node.name}`, preview, channel: ctx.channel, scopeKey: `node:${node.id}:${cap}` });
       if (d === "approved") return null;
       return { error: d === "denied" ? "The owner denied this action." : "Approval request expired; nothing was done." };
     };
@@ -113,7 +115,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
     if (caps.includes("exec")) {
       tools[`node_${s}_exec`] = tool({
         description: `Run a shell command on node "${node.name}" (${node.platform ?? "machine"}; ${node.platform === "windows" ? "PowerShell" : "bash"}). ${
-          needsApproval ? "The owner must approve each command in chat before it runs; show the exact command you intend to run." : "Runs without approval."
+          needsApproval && !autoApprove.has("exec") ? "The owner must approve each command in chat before it runs (they can answer Allow once, Always or Deny); show the exact command you intend to run." : "Runs without approval."
         } Default timeout 60s (max 300). Returns exit code, stdout, stderr.`,
         inputSchema: z.object({
           command: z.string().min(1).max(8000),
@@ -122,7 +124,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
         }),
         execute: async ({ command, timeoutSec, cwd }) => {
           if (needsApproval) {
-            const denied = await approve(`node_${s}_exec`, { command, timeoutSec, cwd }, command);
+            const denied = await approve(`node_${s}_exec`, { command, timeoutSec, cwd }, command, "exec");
             if (denied) return denied;
           }
           return safe(() => call("exec", { command, timeoutSec, cwd, env: ctx.env ?? {} }, ((timeoutSec ?? 60) + 15) * 1000));
@@ -144,7 +146,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
           inputSchema: z.object({ url: z.string().min(1).max(2000), tabId: tabArg.describe("Navigate an existing tab instead of opening a new one.") }),
           execute: async ({ url, tabId }) => {
             if (needsApproval) {
-              const denied = await approve(`node_${s}_browser_open`, { url, tabId }, `open ${url}`);
+              const denied = await approve(`node_${s}_browser_open`, { url, tabId }, `open ${url}`, "browser.open");
               if (denied) return denied;
             }
             return safe(() => call("browser.open", { url, tabId }, 45_000));
@@ -164,7 +166,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
           inputSchema: z.object({ target: refArg, tabId: tabArg }),
           execute: async ({ target, tabId }) => {
             if (needsApproval) {
-              const denied = await approve(`node_${s}_browser_click`, { target, tabId }, `click ${target}`);
+              const denied = await approve(`node_${s}_browser_click`, { target, tabId }, `click ${target}`, "browser.click");
               if (denied) return denied;
             }
             return safe(() => call("browser.click", { target, tabId }, 30_000));
@@ -177,7 +179,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
           inputSchema: z.object({ target: refArg, text: z.string().max(4000), enter: z.boolean().default(false), clear: z.boolean().default(true), tabId: tabArg }),
           execute: async ({ target, text, enter, clear, tabId }) => {
             if (needsApproval) {
-              const denied = await approve(`node_${s}_browser_type`, { target, text, enter, clear, tabId }, `type "${text.slice(0, 200)}"${enter ? " + Enter" : ""} into ${target}`);
+              const denied = await approve(`node_${s}_browser_type`, { target, text, enter, clear, tabId }, `type "${text.slice(0, 200)}"${enter ? " + Enter" : ""} into ${target}`, "browser.type");
               if (denied) return denied;
             }
             return safe(() => call("browser.type", { target, text, enter, clear, tabId }, 30_000));
