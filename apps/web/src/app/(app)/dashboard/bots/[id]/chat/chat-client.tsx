@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpIcon, WrenchIcon } from "@phosphor-icons/react";
-import { resetWebConversation, sendWebMessage } from "./actions";
+import { decideWebApproval, resetWebConversation, sendWebMessage } from "./actions";
 import { Markdown } from "@/components/app/markdown";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
+type Approval = { id: string; target?: string; preview?: string; status: string };
 
 export function ChatClient({ botId, conversationId: initialConv, initial }: { botId: string; conversationId: string; initial: Msg[] }) {
   const [conversationId, setConversationId] = useState(initialConv);
@@ -14,6 +15,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
   const [busy, setBusy] = useState(false);
   const [tool, setTool] = useState<string | null>(null);
   const [streamText, setStreamText] = useState("");
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [pending, start] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -23,9 +25,15 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
     const es = new EventSource(`/api/chat/${conversationId}/stream`);
     esRef.current = es;
     es.onmessage = (e) => {
-      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string };
+      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string };
       if (ev.type === "delta") {
         setStreamText(ev.text ?? "");
+      } else if (ev.type === "approval" && ev.id) {
+        setApprovals((prev) => {
+          const i = prev.findIndex((a) => a.id === ev.id);
+          const next: Approval = { id: ev.id!, target: ev.target ?? prev[i]?.target, preview: ev.preview ?? prev[i]?.preview, status: ev.status ?? "pending" };
+          return i >= 0 ? prev.map((a) => (a.id === ev.id ? next : a)) : [...prev, next];
+        });
       } else if (ev.type === "tool") {
         setTool(ev.status === "start" ? ev.name ?? "tool" : null);
       } else if (ev.type === "final") {
@@ -49,7 +57,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages, tool, streamText]);
+  }, [messages, tool, streamText, approvals]);
 
   function submit() {
     const text = draft.trim();
@@ -94,6 +102,26 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
                 {m.role === "user" ? m.text : <Markdown text={m.text} className="whitespace-pre-wrap" />}
               </div>
             )}
+          </div>
+        ))}
+        {approvals.map((a) => (
+          <div key={a.id} className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg border border-accent/40 bg-accent-soft px-3.5 py-2 text-sm">
+              <p className="font-medium">Approval needed · {a.target}</p>
+              <pre className="mt-1 font-mono text-xs whitespace-pre-wrap break-all">{a.preview}</pre>
+              {a.status === "pending" ? (
+                <div className="mt-2 flex gap-2">
+                  <button type="button" className="btn-primary h-8" onClick={() => start(async () => void (await decideWebApproval(botId, a.id, "approved")))}>
+                    Allow once
+                  </button>
+                  <button type="button" className="btn-secondary h-8" onClick={() => start(async () => void (await decideWebApproval(botId, a.id, "denied")))}>
+                    Deny
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-fg-muted capitalize">{a.status}</p>
+              )}
+            </div>
           </div>
         ))}
         {streamText && (

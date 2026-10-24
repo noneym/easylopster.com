@@ -6,6 +6,8 @@ import { archiveConversation, getOrCreateConversation } from "../agent/session.t
 import { checkQuota } from "../agent/usage.ts";
 import { redis } from "../redis.ts";
 import { abortKey } from "../agent/pubsub.ts";
+import { decideApproval } from "../agent/approvals.ts";
+import type { NodeServer } from "../nodes/server.ts";
 
 type BotFull = Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
 
@@ -39,11 +41,17 @@ interface TgMessage {
   sticker?: { emoji?: string };
   location?: { latitude: number; longitude: number };
 }
+interface TgCallbackQuery {
+  id: string;
+  from: TgUser;
+  data?: string;
+  message?: TgMessage;
+}
 interface TgUpdate {
   update_id: number;
   message?: TgMessage;
   edited_message?: TgMessage;
-  callback_query?: unknown;
+  callback_query?: TgCallbackQuery;
   my_chat_member?: unknown;
 }
 
@@ -204,9 +212,13 @@ async function handleCommand(bot: BotFull, m: TgMessage, cmd: string, args: stri
   }
 }
 
-export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessionKey: string): Promise<void> {
+export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessionKey: string, nodes?: NodeServer): Promise<void> {
+  if (update.callback_query) {
+    await handleCallback(bot, update.callback_query);
+    return;
+  }
   const m = update.message;
-  if (!m) return; // edits, callbacks, membership changes: Faz 3+
+  if (!m) return; // edits, membership changes: later
   if (!m.from || m.from.is_bot) return;
   const token = decrypt(bot.encToken);
   const tg = new TelegramSender(token);
@@ -269,6 +281,8 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
       senderTgId: String(sender.id),
       senderName: senderLabel(sender),
       tgMessageId: String(m.message_id),
+      nodes,
+      approvalChannel: { kind: "telegram", sender: tg, chatId: m.chat.id, threadId: m.message_thread_id },
       onDelta: draft ? (t) => draft.update(t) : undefined,
     });
     stopTyping();
@@ -286,4 +300,23 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
     await db.bot.update({ where: { id: bot.id }, data: { lastError: msg.slice(0, 1000), lastErrorAt: new Date() } }).catch(() => {});
     await tg.sendText(m.chat.id, `Something went wrong: ${msg.slice(0, 300)}`, { threadId: m.message_thread_id }).catch(() => {});
   }
+}
+
+/** Inline-button taps: exec approvals (`apr:<id>:allow|deny`). Only allowlisted senders may decide. */
+async function handleCallback(bot: BotFull, cq: TgCallbackQuery): Promise<void> {
+  const tg = new TelegramSender(decrypt(bot.encToken));
+  const answer = (text: string) => tg.api.answerCallbackQuery(cq.id, { text, show_alert: false }).catch(() => {});
+  const data = cq.data ?? "";
+  const m = data.match(/^apr:([a-z0-9]+):(allow|deny)$/i);
+  if (!m) {
+    await answer("Unknown action");
+    return;
+  }
+  const allowed = bot.dmPolicy === "open" || (await isAllowed(bot.id, "user", String(cq.from.id)));
+  if (!allowed) {
+    await answer("Only the bot owner can decide this.");
+    return;
+  }
+  const ok = await decideApproval(m[1]!, m[2]!.toLowerCase() === "allow" ? "approved" : "denied", String(cq.from.id));
+  await answer(ok ? (m[2]!.toLowerCase() === "allow" ? "Allowed" : "Denied") : "Already decided or expired");
 }

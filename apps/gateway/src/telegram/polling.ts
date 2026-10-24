@@ -30,11 +30,12 @@ export function startTelegramPolling(): () => void {
           const updates = await api.getUpdates({ offset, timeout: 25, allowed_updates: ["message", "edited_message", "callback_query"] });
           for (const u of updates) {
             offset = u.update_id + 1;
-            const chat = u.message?.chat;
+            const msg = u.message ?? u.callback_query?.message;
+            const chat = msg?.chat;
             const sessionKey = chat
               ? chat.type === "private"
                 ? `dm:${botId}:main`
-                : `group:${botId}:${chat.id}${u.message?.message_thread_id ? `:thread:${u.message.message_thread_id}` : ""}`
+                : `group:${botId}:${chat.id}${msg && "message_thread_id" in msg && msg.message_thread_id ? `:thread:${msg.message_thread_id}` : ""}`
               : `dm:${botId}:main`;
             await queue.add(
               "telegram",

@@ -24,7 +24,7 @@ export async function handleInbound(job: InboundJob, _ctx: InboundContext): Prom
   if (!bot || bot.status !== "active") return;
 
   if (job.source === "telegram") {
-    await handleTelegramUpdate(bot, job.payload as never, job.sessionKey);
+    await handleTelegramUpdate(bot, job.payload as never, job.sessionKey, _ctx.nodes);
     return;
   }
 
@@ -46,6 +46,8 @@ export async function handleInbound(job: InboundJob, _ctx: InboundContext): Prom
       userText: text,
       storedText: text,
       senderName: "owner",
+      nodes: _ctx.nodes,
+      approvalChannel: { kind: "web", conversationId: conversation.id },
       onDelta: (t) => void publishChat(conversation.id, { type: "delta", text: t }),
       onTool: (name, status) => void publishChat(conversation.id, { type: "tool", name, status }),
     });

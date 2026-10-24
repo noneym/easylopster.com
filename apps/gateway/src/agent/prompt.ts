@@ -18,6 +18,8 @@ export interface PromptInput {
   mcpInstructions?: { server: string; text: string }[];
   /** exec tool available (cloud sandbox) */
   sandbox?: boolean;
+  /** linked nodes summary lines (name: online/offline, caps) */
+  nodes?: string[];
   timezone: string;
 }
 
@@ -83,6 +85,11 @@ Memory: write durable facts about the user or ongoing work with memory_append; s
   if (p.sandbox) {
     parts.push(`## Sandbox
 You have a private Linux sandbox (exec tool). It is isolated from the host: no access to other users, the gateway, or your owner's machine. /workspace is the same folder the fs tools see and persists between runs; everything else resets when the sandbox is recycled. Use exec for anything that needs real computation, package managers, git, or data processing; prefer fs tools for simple reads and writes.`);
+  }
+
+  if (p.nodes?.length) {
+    parts.push(`## Nodes
+The owner linked their own machines ("nodes") to you. Node tools are named node_<name>_<capability> and run on that machine, not in the cloud. Files there are separate from your cloud workspace. Commands on a node may require the owner's approval in chat: say what you will run and why, then call the tool once; do not retry a denied command. The current node list is in the runtime context.`);
   }
 
   parts.push(`## Tool Call Style

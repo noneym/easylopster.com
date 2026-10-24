@@ -8,24 +8,29 @@ import { decidePairing, deleteBot, removeAllowlistEntry, resetWebhook, setBotSta
 import { BotSettingsForm } from "./bot-settings-form";
 import { AllowlistForm } from "./allowlist-form";
 import { BotMcpForm } from "./bot-mcp-form";
+import { BotNodesForm } from "./bot-nodes-form";
+import { onlineNodeIds } from "../../nodes/actions";
 
 export const metadata = { title: "Bot" };
 
 export default async function BotDetailPage({ params }: PageProps<"/dashboard/bots/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const [bot, keys, mcpServers] = await Promise.all([
+  const [bot, keys, mcpServers, nodes, online] = await Promise.all([
     db.bot.findFirst({
       where: { id, userId: user.id },
       include: {
         allowlist: { orderBy: { createdAt: "asc" } },
         mcps: true,
+        nodes: true,
         pairings: { where: { status: "pending", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } },
         _count: { select: { conversations: true } },
       },
     }),
     db.providerKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     db.mcpServer.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
+    db.node.findMany({ where: { userId: user.id, status: { not: "revoked" } }, orderBy: { createdAt: "asc" } }),
+    onlineNodeIds(),
   ]);
   if (!bot) notFound();
 
@@ -155,6 +160,18 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
               tools: Array.isArray(s.toolsCache) ? (s.toolsCache as { name: string; description?: string }[]) : [],
             }))}
             links={bot.mcps.map((m) => ({ mcpServerId: m.mcpServerId, allowedTools: Array.isArray(m.allowedTools) ? (m.allowedTools as string[]) : null }))}
+          />
+
+          <BotNodesForm
+            botId={bot.id}
+            nodes={nodes.map((n) => ({
+              id: n.id,
+              name: n.name,
+              status: n.status,
+              online: online.has(n.id),
+              caps: Array.isArray(n.enabledCaps) ? (n.enabledCaps as string[]) : [],
+            }))}
+            linked={bot.nodes.map((l) => l.nodeId)}
           />
         </div>
 

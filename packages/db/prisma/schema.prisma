@@ -228,6 +228,8 @@ model Node {
   caps          Json? // declared capabilities
   /// Which declared capabilities the user has enabled for agents
   enabledCaps   Json?
+  /// exec approval policy: always (ask in chat each time) | never
+  execApproval  String    @default("always")
   workspaceRoot String?
   lastSeenAt    DateTime?
   lastIp        String?
@@ -313,6 +315,8 @@ model ToolApproval {
   decidedBy      String? // tg user id or "web"
   decidedAt      DateTime?
   expiresAt      DateTime
+  /// Where the prompt was shown: { kind: "telegram", chatId, messageId } | { kind: "web" }
+  channel        Json?
   createdAt      DateTime  @default(now())
 
   @@index([botId, status])

@@ -25,13 +25,18 @@ export async function POST(req: Request, ctx: RouteContext<"/api/tg/[botId]/[sec
   }
   if (bot.status !== "active") return new Response("paused", { status: 200 });
 
-  const u = update as { update_id?: number; message?: { chat?: { id: number; type: string }; message_thread_id?: number }; callback_query?: unknown };
-  const chat = u.message?.chat;
+  const u = update as {
+    update_id?: number;
+    message?: { chat?: { id: number; type: string }; message_thread_id?: number };
+    callback_query?: { message?: { chat?: { id: number; type: string }; message_thread_id?: number } };
+  };
+  const msg = u.message ?? u.callback_query?.message;
+  const chat = msg?.chat;
   // Session key mirrors OpenClaw: all DMs share the bot's main session; each group (and topic) is its own.
   const sessionKey = chat
     ? chat.type === "private"
       ? `dm:${botId}:main`
-      : `group:${botId}:${chat.id}${u.message?.message_thread_id ? `:thread:${u.message.message_thread_id}` : ""}`
+      : `group:${botId}:${chat.id}${msg?.message_thread_id ? `:thread:${msg.message_thread_id}` : ""}`
     : `dm:${botId}:main`;
 
   await inboundQueue().add(

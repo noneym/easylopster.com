@@ -5,6 +5,7 @@ export type ChatEvent =
   | { type: "delta"; text: string }
   | { type: "tool"; name: string; status: "start" | "end" }
   | { type: "final"; text: string; messageId: string }
+  | { type: "approval"; id: string; target?: string; preview?: string; status: "pending" | "approved" | "denied" | "expired" }
   | { type: "error"; message: string };
 
 export function chatChannel(conversationId: string) {

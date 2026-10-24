@@ -12,6 +12,9 @@ import { abortKey } from "./pubsub.ts";
 import { mcpToolsForBot } from "./mcp.ts";
 import { sandboxTools } from "../sandbox/tool.ts";
 import { sandboxAvailable } from "../sandbox/docker.ts";
+import { nodeToolsForBot } from "./node-tools.ts";
+import type { ApprovalChannel } from "./approvals.ts";
+import type { NodeServer } from "../nodes/server.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -26,6 +29,8 @@ export interface RunInput {
   senderName?: string;
   tgMessageId?: string;
   extraTools?: ToolSet;
+  nodes?: NodeServer;
+  approvalChannel?: ApprovalChannel;
   onDelta?: (fullText: string) => void;
   onTool?: (name: string, status: "start" | "end") => void;
 }
@@ -88,7 +93,8 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const mcp = await mcpToolsForBot(bot.id);
   const policy = (bot.toolPolicy ?? {}) as { exec?: string };
   const execTools = policy.exec === "sandbox" && sandboxAvailable() ? sandboxTools(bot.userId, bot.id) : {};
-  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...execTools, ...mcp.tools, ...(input.extraTools ?? {}) };
+  const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel }) : { tools: {}, summary: [] };
+  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...execTools, ...mcp.tools, ...nodeTools.tools, ...(input.extraTools ?? {}) };
   console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tools=${Object.keys(tools).join(",")}${mcp.errors.length ? ` mcpErrors=${JSON.stringify(mcp.errors)}` : ""}`);
 
   const system = buildSystemPrompt({
@@ -99,6 +105,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     requireMention: bot.requireMention,
     workspaceDir: "/workspace",
     sandbox: Object.keys(execTools).length > 0,
+    nodes: nodeTools.summary,
     bootstrap,
     toolNames: Object.keys(tools),
     mcpInstructions: mcp.instructions,
@@ -108,7 +115,17 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const history = await loadHistory(conversation);
   const messages: ModelMessage[] = [
     ...history,
-    { role: "user", content: buildRuntimeContext({ now, timezone, extra: mcp.errors.length ? ["## MCP", ...mcp.errors.map((e) => `Unavailable this turn: ${e}`)] : undefined }) },
+    {
+      role: "user",
+      content: buildRuntimeContext({
+        now,
+        timezone,
+        extra: [
+          ...(mcp.errors.length ? ["## MCP", ...mcp.errors.map((e) => `Unavailable this turn: ${e}`)] : []),
+          ...(nodeTools.summary.length ? ["## Nodes", ...nodeTools.summary] : []),
+        ],
+      }),
+    },
     { role: "assistant", content: "Noted." },
     { role: "user", content: input.userText },
   ];

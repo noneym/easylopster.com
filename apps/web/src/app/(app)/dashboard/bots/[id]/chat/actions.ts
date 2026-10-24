@@ -40,6 +40,14 @@ export async function sendWebMessage(botId: string, conversationId: string, text
   return { ok: true };
 }
 
+export async function decideWebApproval(botId: string, approvalId: string, decision: "approved" | "denied") {
+  const user = await requireUser();
+  const row = await db.toolApproval.findFirst({ where: { id: approvalId, botId, bot: { userId: user.id } } });
+  if (!row || row.status !== "pending") return { ok: false };
+  await db.toolApproval.update({ where: { id: approvalId }, data: { status: decision, decidedBy: "web", decidedAt: new Date() } });
+  return { ok: true };
+}
+
 export async function resetWebConversation(botId: string, conversationId: string) {
   const user = await requireUser();
   const conv = await db.conversation.findFirst({ where: { id: conversationId, botId, bot: { userId: user.id } } });
