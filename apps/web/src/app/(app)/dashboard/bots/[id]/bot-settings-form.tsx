@@ -19,6 +19,7 @@ type BotValues = {
   requireMention: boolean;
   streaming: string;
   replyToMode: string;
+  exec: string;
 };
 
 function Field({ label, htmlFor, help, error, children }: { label: string; htmlFor: string; help?: string; error?: string; children: React.ReactNode }) {
@@ -96,6 +97,20 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
         </Field>
         <Field label="About you (USER.md)" htmlFor="userProfile" help="Name, timezone, preferences, projects. Max 4000 characters.">
           <textarea id="userProfile" name="userProfile" defaultValue={bot.userProfile} rows={4} className="input h-auto py-2 font-mono text-sm leading-relaxed" maxLength={4000} />
+        </Field>
+      </section>
+
+      <section className="card p-6 space-y-5">
+        <h2 className="font-semibold tracking-tight">Tools</h2>
+        <Field
+          label="Shell (exec)"
+          htmlFor="exec"
+          help="Sandbox: a private Linux container per bot (Debian, python3, node, git, curl). Isolated from everything else; /workspace persists."
+        >
+          <select id="exec" name="exec" defaultValue={bot.exec} className="input">
+            <option value="off">Off</option>
+            <option value="sandbox">Cloud sandbox</option>
+          </select>
         </Field>
       </section>
 

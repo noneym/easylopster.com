@@ -16,6 +16,8 @@ export interface PromptInput {
   bootstrap: [string, string][];
   toolNames: string[];
   mcpInstructions?: { server: string; text: string }[];
+  /** exec tool available (cloud sandbox) */
+  sandbox?: boolean;
   timezone: string;
 }
 
@@ -76,6 +78,11 @@ Memory: write durable facts about the user or ongoing work with memory_append; s
 
   if (p.mcpInstructions?.length) {
     parts.push(`## MCP Server Instructions\n` + p.mcpInstructions.map((m) => `### ${m.server}\n${m.text}`).join("\n\n"));
+  }
+
+  if (p.sandbox) {
+    parts.push(`## Sandbox
+You have a private Linux sandbox (exec tool). It is isolated from the host: no access to other users, the gateway, or your owner's machine. /workspace is the same folder the fs tools see and persists between runs; everything else resets when the sandbox is recycled. Use exec for anything that needs real computation, package managers, git, or data processing; prefer fs tools for simple reads and writes.`);
   }
 
   parts.push(`## Tool Call Style

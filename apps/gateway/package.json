@@ -20,12 +20,14 @@
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "ai": "^7.0.152",
     "bullmq": "^6.4.1",
+    "dockerode": "^5.0.1",
     "grammy": "^1.46.0",
     "ioredis": "^6.0.0",
     "ws": "^8.22.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/dockerode": "^4.0.2",
     "@types/node": "^22.19.0",
     "@types/ws": "^8.18.1",
     "tsdown": "^0.23.2",

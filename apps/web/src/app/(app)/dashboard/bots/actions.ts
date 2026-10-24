@@ -94,6 +94,7 @@ const settingsSchema = z.object({
   requireMention: z.string().optional(),
   streaming: z.enum(["off", "partial", "block", "progress"]),
   replyToMode: z.enum(["off", "first", "all"]),
+  exec: z.enum(["off", "sandbox"]).default("off"),
 });
 
 export async function updateBot(_prev: BotFormState, formData: FormData): Promise<BotFormState> {
@@ -119,6 +120,7 @@ export async function updateBot(_prev: BotFormState, formData: FormData): Promis
       requireMention: d.requireMention === "on",
       streaming: d.streaming,
       replyToMode: d.replyToMode,
+      toolPolicy: { exec: d.exec },
     },
   });
   if (r.count === 0) return { error: "Bot not found" };

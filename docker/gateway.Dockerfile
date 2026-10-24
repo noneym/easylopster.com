@@ -28,8 +28,8 @@ WORKDIR /app
 ENV NODE_ENV=production GATEWAY_PORT=4000 WORKSPACE_ROOT=/data/workspaces
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/gateway/dist ./dist
-RUN mkdir -p /data/workspaces && chown -R node:node /app /data
-USER node
+# Runs as root: the sandbox feature talks to the host Docker socket (mounted by the deploy panel).
+RUN mkdir -p /data/workspaces
 EXPOSE 4000
 VOLUME ["/data/workspaces"]
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \

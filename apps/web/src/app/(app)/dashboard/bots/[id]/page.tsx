@@ -112,6 +112,7 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
               requireMention: bot.requireMention,
               streaming: bot.streaming,
               replyToMode: bot.replyToMode,
+              exec: (bot.toolPolicy as { exec?: string } | null)?.exec ?? "off",
             }}
             keys={keys.map((k) => ({
               id: k.id,

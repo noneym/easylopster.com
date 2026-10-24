@@ -10,6 +10,8 @@ import { recordUsage } from "./usage.ts";
 import { redis } from "../redis.ts";
 import { abortKey } from "./pubsub.ts";
 import { mcpToolsForBot } from "./mcp.ts";
+import { sandboxTools } from "../sandbox/tool.ts";
+import { sandboxAvailable } from "../sandbox/docker.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -84,7 +86,9 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   }
 
   const mcp = await mcpToolsForBot(bot.id);
-  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...mcp.tools, ...(input.extraTools ?? {}) };
+  const policy = (bot.toolPolicy ?? {}) as { exec?: string };
+  const execTools = policy.exec === "sandbox" && sandboxAvailable() ? sandboxTools(bot.userId, bot.id) : {};
+  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...execTools, ...mcp.tools, ...(input.extraTools ?? {}) };
   console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tools=${Object.keys(tools).join(",")}${mcp.errors.length ? ` mcpErrors=${JSON.stringify(mcp.errors)}` : ""}`);
 
   const system = buildSystemPrompt({
@@ -94,6 +98,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     chatType: input.chatType,
     requireMention: bot.requireMention,
     workspaceDir: "/workspace",
+    sandbox: Object.keys(execTools).length > 0,
     bootstrap,
     toolNames: Object.keys(tools),
     mcpInstructions: mcp.instructions,

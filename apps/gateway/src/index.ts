@@ -7,6 +7,7 @@ import { createRedis, redis } from "./redis.ts";
 import { attachNodeServer } from "./nodes/server.ts";
 import { handleInbound, type InboundJob } from "./agent/inbound.ts";
 import { startTelegramPolling } from "./telegram/polling.ts";
+import { sandboxAvailable, sandboxExec, startSandboxReaper } from "./sandbox/docker.ts";
 
 const log = (msg: string, extra?: unknown) =>
   console.log(`[gateway] ${new Date().toISOString()} ${msg}`, extra ?? "");
@@ -30,6 +31,22 @@ async function main() {
       if (url.pathname === "/internal/nodes/online") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ nodes: nodeServer.onlineNodeIds() }));
+        return;
+      }
+      // Operator smoke test for the cloud sandbox: POST {userId, botId, command}
+      if (url.pathname === "/internal/sandbox/exec" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        try {
+          const { userId, botId, command, timeoutSec } = JSON.parse(body || "{}");
+          if (!sandboxAvailable()) throw new Error("SANDBOX_ENABLED is not 1");
+          const r = await sandboxExec(String(userId ?? "smoke"), String(botId ?? "smoke"), String(command ?? "echo hello"), { timeoutSec });
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify(r));
+        } catch (err) {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: (err as Error).message }));
+        }
         return;
       }
     }
@@ -60,10 +77,12 @@ async function main() {
 
   // Dev only: pull Telegram updates when there is no public webhook URL.
   const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};
+  const stopSandbox = sandboxAvailable() ? startSandboxReaper() : () => {};
 
   const shutdown = async (sig: string) => {
     log(`${sig} received, shutting down`);
     stopPolling();
+    stopSandbox();
     await worker.close();
     nodeServer.close();
     server.close();
