@@ -1,8 +1,8 @@
-import { PrismaClient } from "../generated/client.js";
+import { PrismaClient } from "../generated/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import type { PoolConfig } from "mariadb";
 
-export * from "../generated/client.js";
+export * from "../generated/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 

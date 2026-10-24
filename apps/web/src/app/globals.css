@@ -1,26 +1,126 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Tokens. One accent (coral), zinc neutrals, auto light/dark via the .dark class set in layout
+  from prefers-color-scheme (no flash: inline script in <head>).
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: oklch(0.985 0.002 90);
+  --bg-elev: oklch(1 0 0);
+  --bg-sunk: oklch(0.965 0.003 90);
+  --fg: oklch(0.2 0.01 60);
+  --fg-muted: oklch(0.5 0.012 60);
+  --fg-faint: oklch(0.68 0.01 60);
+  --line: oklch(0.9 0.005 80);
+  --line-strong: oklch(0.82 0.006 80);
+  --accent: oklch(0.64 0.17 32);
+  --accent-fg: oklch(0.99 0.01 32);
+  --accent-soft: oklch(0.95 0.035 32);
+  --accent-ink: oklch(0.5 0.17 32);
+  --radius: 10px;
+  --shadow-tint: 30 20% 20%;
+}
+.dark {
+  --bg: oklch(0.17 0.006 60);
+  --bg-elev: oklch(0.21 0.007 60);
+  --bg-sunk: oklch(0.145 0.006 60);
+  --fg: oklch(0.95 0.005 80);
+  --fg-muted: oklch(0.7 0.01 70);
+  --fg-faint: oklch(0.52 0.01 70);
+  --line: oklch(0.27 0.008 60);
+  --line-strong: oklch(0.34 0.01 60);
+  --accent: oklch(0.72 0.16 32);
+  --accent-fg: oklch(0.18 0.03 32);
+  --accent-soft: oklch(0.27 0.045 32);
+  --accent-ink: oklch(0.8 0.13 32);
+  --shadow-tint: 30 10% 2%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-bg-sunk: var(--bg-sunk);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 1.6);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+/* Focus ring: visible, accent-tinted, consistent */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Shared primitives */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 h-10 text-sm font-medium transition-[transform,background-color,border-color,color] duration-200 active:translate-y-px disabled:opacity-60 disabled:pointer-events-none;
+}
+.btn-primary {
+  @apply btn bg-accent text-accent-fg hover:brightness-105;
+}
+.btn-secondary {
+  @apply btn border border-line-strong bg-bg-elev text-fg hover:border-fg-faint;
+}
+.btn-ghost {
+  @apply btn text-fg-muted hover:text-fg hover:bg-bg-sunk;
+}
+.input {
+  @apply w-full h-10 rounded-md border border-line-strong bg-bg-elev px-3 text-base sm:text-sm text-fg placeholder:text-fg-faint transition-colors focus:border-accent;
+}
+.label {
+  @apply block text-sm font-medium text-fg mb-2;
+}
+.help {
+  @apply text-xs text-fg-muted mt-2;
+}
+.error {
+  @apply text-xs text-accent-ink mt-2;
+}
+.card {
+  @apply rounded-lg border border-line bg-bg-elev;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

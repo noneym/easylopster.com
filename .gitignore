@@ -13,3 +13,6 @@ coverage
 packages/db/generated
 apps/gateway/dist
 packages/node-agent/dist
+
+# gateway runtime data
+/apps/gateway/data
