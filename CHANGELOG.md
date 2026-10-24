@@ -6,6 +6,8 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-24
+
 ### Added
 - Browser control on Windows nodes: easylopster Node (tray app) gets a "Browser control (Brave)"
   toggle. When on, the node declares `browser.open / snapshot / click / type / screenshot / tabs`
@@ -22,6 +24,7 @@ All notable changes to easylopster are documented here. The format follows
   picker back to the first entry and made the next save submit the wrong model.
 - Web chat shows a "Thinking" / "Running <tool>" indicator while a reply is pending.
 - Dev polling can be limited to specific accounts (`TELEGRAM_POLLING_EMAILS`) so a local gateway on a shared database never takes over production bots' webhooks.
+- Node settings: capabilities the dashboard did not know yet (the new browser.* ones) were silently dropped on save, so enabling them appeared to revert; the schema now includes them.
 
 ## [1.1.1] - 2026-10-24
 
@@ -134,7 +137,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/noneym/easylopster.com/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/noneym/easylopster.com/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noneym/easylopster.com/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/noneym/easylopster.com/releases/tag/v1.0.0
