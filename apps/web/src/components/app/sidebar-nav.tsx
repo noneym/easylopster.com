@@ -7,6 +7,7 @@ import {
   GearSixIcon,
   KeyIcon,
   LockKeyIcon,
+  ChartBarIcon,
   PlugsConnectedIcon,
   RobotIcon,
   SquaresFourIcon,
@@ -20,6 +21,7 @@ const ITEMS: { href: string; label: string; icon: Icon; exact?: boolean }[] = [
   { href: "/dashboard/mcp", label: "MCP servers", icon: PlugsConnectedIcon },
   { href: "/dashboard/nodes", label: "Nodes", icon: DesktopIcon },
   { href: "/dashboard/secrets", label: "Secrets", icon: LockKeyIcon },
+  { href: "/dashboard/usage", label: "Usage", icon: ChartBarIcon },
   { href: "/dashboard/settings", label: "Settings", icon: GearSixIcon },
 ];
 

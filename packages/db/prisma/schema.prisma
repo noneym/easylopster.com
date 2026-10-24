@@ -129,6 +129,15 @@ model Bot {
 
   /// Telegram chat id of the owner's DM (first approved DM); automations announce here
   ownerTgChatId String?
+  /// Session reset policy: none | daily | idle
+  sessionReset     String  @default("none")
+  resetAtHour      Int     @default(4)
+  resetIdleMinutes Int     @default(240)
+  /// Telegram ack reaction emoji for group mentions ("" = off)
+  ackReaction      String  @default("")
+  /// Nightly memory consolidation (dreaming)
+  dreaming         Boolean @default(true)
+  lastDreamAt      DateTime?
 
   // Where this bot's workspace lives: cloud | node
   workspaceMode   String  @default("cloud")
@@ -147,6 +156,7 @@ model Bot {
   approvals     ToolApproval[]
   secrets       BotSecret[]
   automations   Automation[]
+  intents       Intent[]
 
   @@unique([platform, tgBotId])
   @@index([userId])
@@ -276,6 +286,12 @@ model Conversation {
   archivedAt    DateTime?
   /// Per-conversation model override (/model command), null = bot default
   modelOverride String?
+  /// /think override: off|low|medium|high
+  thinkingOverride   String?
+  /// /activation override for groups: mention|always
+  activationOverride String?
+  /// Session start (for daily reset policy)
+  startedAt     DateTime  @default(now())
   lastMessageAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -408,4 +424,25 @@ model Automation {
 
   @@index([enabled, nextRunAt])
   @@index([botId])
+}
+
+// ───────────────────────────── Standing intents ─────────────────────────────
+
+/// Event-conditioned reminders (OpenClaw `intent` tool): fire when a later message matches keywords.
+model Intent {
+  id              String    @id @default(cuid())
+  botId           String
+  bot             Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  description     String    @db.Text
+  triggerKeywords Json // string[]
+  /// conversation = only the conversation it was created in; anywhere = any conversation of the bot
+  scope           String    @default("conversation")
+  conversationId  String?
+  expiresAt       DateTime?
+  maxFires        Int       @default(1)
+  fires           Int       @default(0)
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@index([botId, active])
 }

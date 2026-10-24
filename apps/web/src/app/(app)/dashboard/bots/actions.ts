@@ -95,6 +95,11 @@ const settingsSchema = z.object({
   streaming: z.enum(["off", "partial", "block", "progress"]),
   replyToMode: z.enum(["off", "first", "all"]),
   exec: z.enum(["off", "sandbox"]).default("off"),
+  sessionReset: z.enum(["none", "daily", "idle"]).default("none"),
+  resetAtHour: z.coerce.number().int().min(0).max(23).default(4),
+  resetIdleMinutes: z.coerce.number().int().min(5).max(10080).default(240),
+  ackReaction: z.string().trim().max(8).optional().or(z.literal("")),
+  dreaming: z.string().optional(),
 });
 
 export async function updateBot(_prev: BotFormState, formData: FormData): Promise<BotFormState> {
@@ -121,6 +126,11 @@ export async function updateBot(_prev: BotFormState, formData: FormData): Promis
       streaming: d.streaming,
       replyToMode: d.replyToMode,
       toolPolicy: { exec: d.exec },
+      sessionReset: d.sessionReset,
+      resetAtHour: d.resetAtHour,
+      resetIdleMinutes: d.resetIdleMinutes,
+      ackReaction: d.ackReaction || "",
+      dreaming: d.dreaming === "on",
     },
   });
   if (r.count === 0) return { error: "Bot not found" };

@@ -19,6 +19,11 @@ import { loadSkills, skillsCatalog, skillTools } from "./skills.ts";
 import { memoryFlush, memoryRecall, memoryTools } from "./memory.ts";
 import { loadBotSecrets, secretsTools } from "./secrets.ts";
 import { automationsTools } from "./automations.ts";
+import { firedIntents, intentTools } from "./intents.ts";
+import { subagentTools, SUBAGENT_TASK_LABEL } from "./subagent.ts";
+import { webSearchTools } from "./web-search.ts";
+import { extractMedia } from "../telegram/media.ts";
+import { getOrCreateConversation } from "./session.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -37,10 +42,18 @@ export interface RunInput {
   approvalChannel?: ApprovalChannel;
   onDelta?: (fullText: string) => void;
   onTool?: (name: string, status: "start" | "end") => void;
+  /** Inbound images (vision) */
+  images?: { data: Buffer; mimeType: string }[];
+  /** Extra runtime-context lines */
+  extraContext?: string[];
+  /** Subagent nesting depth (0 = top level) */
+  depth?: number;
 }
 
 export interface RunOutput {
   text: string;
+  /** MEDIA: paths/urls the model asked to attach */
+  media: string[];
   silent: boolean;
   messageId: string;
   tokensIn: number;
@@ -67,7 +80,8 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const { bot, conversation } = input;
   if (!bot.providerKey) throw new Error("This bot has no API key assigned. Add one in the dashboard.");
   const modelId = conversation.modelOverride || bot.model || bot.providerKey.defaultModel;
-  const resolved = resolveModel(bot.providerKey, modelId, bot.thinking);
+  const resolved = resolveModel(bot.providerKey, modelId, conversation.thinkingOverride ?? bot.thinking);
+  const depth = input.depth ?? 0;
   const timezone = bot.user.timezone || "UTC";
 
   const ws = new Workspace(bot.userId, bot.id);
@@ -102,10 +116,21 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel, env: secrets.env }) : { tools: {}, summary: [] };
   const tools: ToolSet = {
     ...builtinTools({ ws, timezone, now: () => new Date() }),
-    ...memoryTools(ws),
+    ...memoryTools(ws, bot.userId),
     ...skillTools(ws, skills),
     ...(secrets.meta.length ? secretsTools(secrets) : {}),
     ...automationsTools(bot.id, timezone),
+    ...intentTools(bot.id, conversation.id),
+    ...webSearchTools(),
+    ...(depth === 0
+      ? subagentTools(async (req) => {
+          const sub = await getOrCreateConversation(bot.id, `sub:${bot.id}:${Date.now().toString(36)}`, "web", { title: `Subagent: ${req.label ?? req.task.slice(0, 40)}` });
+          const forkContext = req.context === "fork" ? ["## Parent conversation (recent)", ...(await loadHistory(conversation)).slice(-12).map((h) => `${h.role}: ${typeof h.content === "string" ? h.content.slice(0, 600) : "[parts]"}`)] : [];
+          const started = Date.now();
+          const r = await runAgent({ ...input, conversation: sub, userText: `${SUBAGENT_TASK_LABEL}\n${req.task}`, storedText: req.task, senderName: "parent", images: undefined, onDelta: undefined, onTool: undefined, extraContext: forkContext, depth: depth + 1 });
+          return { text: r.text, toolCalls: r.toolCalls, durationMs: Date.now() - started };
+        })
+      : {}),
     ...execTools,
     ...mcp.tools,
     ...nodeTools.tools,
@@ -141,12 +166,16 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
         extra: [
           ...(mcp.errors.length ? ["## MCP", ...mcp.errors.map((e) => `Unavailable this turn: ${e}`)] : []),
           ...(nodeTools.summary.length ? ["## Nodes", ...nodeTools.summary] : []),
-          ...(await memoryRecall(ws, input.storedText)),
+          ...(await memoryRecall(ws, input.storedText, bot.userId)),
+          ...(await firedIntents(bot.id, conversation.id, input.storedText)),
+          ...(input.extraContext ?? []),
         ],
       }),
     },
     { role: "assistant", content: "Noted." },
-    { role: "user", content: input.userText },
+    input.images?.length
+      ? { role: "user", content: [{ type: "text", text: input.userText }, ...input.images.map((im) => ({ type: "image" as const, image: im.data, mediaType: im.mimeType }))] }
+      : { role: "user", content: input.userText },
   ];
 
   const userRow = await saveMessage(conversation.id, {
@@ -239,10 +268,11 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   }
 
   const silent = isSilent(text);
-  const finalText = silent ? "" : cleanFinalText(text) || (error === "stopped" ? "(stopped)" : "");
+  const extracted = silent ? { text: "", media: [] } : extractMedia(cleanFinalText(text));
+  const finalText = silent ? "" : extracted.text || (extracted.media.length ? "" : error === "stopped" ? "(stopped)" : "");
   const assistantRow = await saveMessage(conversation.id, {
     role: "assistant",
-    content: { text: finalText, silent },
+    content: { text: finalText, silent, media: extracted.media },
     text: finalText,
     model: resolved.identity,
     tokensIn,
@@ -260,5 +290,5 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     return r.text;
   }).catch(() => {});
 
-  return { text: finalText, silent, messageId: assistantRow.id, tokensIn, tokensOut, toolCalls };
+  return { text: finalText, media: extracted.media, silent: silent || (!finalText && extracted.media.length === 0), messageId: assistantRow.id, tokensIn, tokensOut, toolCalls };
 }

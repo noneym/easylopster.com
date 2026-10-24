@@ -20,6 +20,11 @@ type BotValues = {
   streaming: string;
   replyToMode: string;
   exec: string;
+  sessionReset: string;
+  resetAtHour: number;
+  resetIdleMinutes: number;
+  ackReaction: string;
+  dreaming: boolean;
 };
 
 function Field({ label, htmlFor, help, error, children }: { label: string; htmlFor: string; help?: string; error?: string; children: React.ReactNode }) {
@@ -155,6 +160,37 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
             <span className="block text-fg-muted">Replies to the bot's own messages also count as a mention.</span>
           </span>
         </label>
+      </section>
+
+      <section className="card p-6 space-y-5">
+        <h2 className="font-semibold tracking-tight">Sessions and memory</h2>
+        <div className="grid gap-5 sm:grid-cols-3">
+          <Field label="Session reset" htmlFor="sessionReset" help="When the main conversation starts fresh. History stays searchable.">
+            <select id="sessionReset" name="sessionReset" defaultValue={bot.sessionReset} className="input">
+              <option value="none">Never (manual /new)</option>
+              <option value="daily">Daily at an hour</option>
+              <option value="idle">After idle minutes</option>
+            </select>
+          </Field>
+          <Field label="Daily reset hour" htmlFor="resetAtHour" help="Local hour, 0 to 23.">
+            <input id="resetAtHour" name="resetAtHour" type="number" min={0} max={23} defaultValue={bot.resetAtHour} className="input" />
+          </Field>
+          <Field label="Idle minutes" htmlFor="resetIdleMinutes" help="For the idle policy.">
+            <input id="resetIdleMinutes" name="resetIdleMinutes" type="number" min={5} max={10080} defaultValue={bot.resetIdleMinutes} className="input" />
+          </Field>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Ack reaction" htmlFor="ackReaction" help="Emoji the bot reacts with when it picks up a message (empty = off), e.g. 👀">
+            <input id="ackReaction" name="ackReaction" defaultValue={bot.ackReaction} className="input" maxLength={8} />
+          </Field>
+          <label className="flex items-start gap-3 text-sm pt-7">
+            <input type="checkbox" name="dreaming" defaultChecked={bot.dreaming} className="mt-1 size-4 accent-[var(--accent)]" />
+            <span>
+              <span className="font-medium">Nightly memory consolidation</span>
+              <span className="block text-fg-muted">At 04:00 your time, durable facts from daily notes are promoted into MEMORY.md (review in DREAMS.md).</span>
+            </span>
+          </label>
+        </div>
       </section>
 
       <div className="flex items-center gap-3">

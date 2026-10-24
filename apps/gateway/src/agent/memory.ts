@@ -1,6 +1,7 @@
 import { generateText, tool, type LanguageModel, type ToolSet } from "ai";
 import { z } from "zod";
 import type { Workspace } from "../workspace/fs.ts";
+import { semanticScores } from "./embeddings.ts";
 
 /**
  * Memory on top of the cloud workspace, following OpenClaw's model:
@@ -48,12 +49,13 @@ function tokens(s: string): string[] {
     .filter((t) => t.length > 1);
 }
 
-/** Returns the best matching chunks for a query (score > 0), newest files first on ties. */
-export async function searchMemory(ws: Workspace, query: string, maxResults = 6): Promise<{ path: string; line: number; score: number; text: string }[]> {
+/** Returns the best matching chunks for a query (score > 0), newest files first on ties. Hybrid: BM25 + optional embeddings. */
+export async function searchMemory(ws: Workspace, query: string, maxResults = 6, userId?: string): Promise<{ path: string; line: number; score: number; text: string }[]> {
   const all = await chunks(ws);
   if (all.length === 0) return [];
   const q = [...new Set(tokens(query))];
-  if (q.length === 0) return [];
+  const sem = userId ? await semanticScores(ws, userId, query, all.map((c) => c.text)).catch(() => null) : null;
+  if (q.length === 0 && !sem) return [];
   const df = new Map<string, number>();
   const toks = all.map((c) => tokens(c.text));
   for (const t of toks) for (const w of new Set(t)) df.set(w, (df.get(w) ?? 0) + 1);
@@ -69,22 +71,25 @@ export async function searchMemory(ws: Workspace, query: string, maxResults = 6)
       const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5));
       score += idf * ((tf * 2.2) / (tf + 1.2 * (0.25 + 0.75 * (t.length / avg))));
     }
-    return { ...c, score };
+    // Hybrid: keyword score normalized against the best keyword hit, plus semantic similarity.
+    return { ...c, score, sem: sem?.[i] ?? 0 };
   });
+  const bestKw = Math.max(...scored.map((c) => c.score), 0) || 1;
+  for (const c of scored) c.score = (sem ? 0.5 : 1) * (c.score / bestKw) + (sem ? 0.5 * Math.max(0, (c.sem - 0.2) / 0.8) : 0);
   return scored
-    .filter((c) => c.score > 0)
+    .filter((c) => c.score > (sem ? 0.12 : 0))
     .sort((a, b) => b.score - a.score || b.path.localeCompare(a.path))
     .slice(0, maxResults)
     .map((c) => ({ ...c, score: Math.round(c.score * 100) / 100, text: c.text.slice(0, 700) }));
 }
 
-export function memoryTools(ws: Workspace): ToolSet {
+export function memoryTools(ws: Workspace, userId?: string): ToolSet {
   return {
     memory_search: tool({
       description:
         "Search MEMORY.md and the Markdown files under memory/ when an answer depends on prior work, decisions, dates, people, preferences, or todos not already present in the current turn. Do not repeat memory retrieval when supplied context fully answers the question. Returns ranked snippets with path and line; use memory_get to pull more lines.",
       inputSchema: z.object({ query: z.string().min(1), maxResults: z.number().int().min(1).max(20).default(6) }),
-      execute: async ({ query, maxResults }) => ({ results: await searchMemory(ws, query, maxResults) }),
+      execute: async ({ query, maxResults }) => ({ results: await searchMemory(ws, query, maxResults, userId) }),
     }),
     memory_get: tool({
       description: "Safe exact excerpt read from a memory file (MEMORY.md or memory/*.md). Defaults to a bounded excerpt when lines are omitted.",
@@ -102,8 +107,8 @@ export function memoryTools(ws: Workspace): ToolSet {
 }
 
 /** Lines for the runtime-context message: top memory hits for the current user text. */
-export async function memoryRecall(ws: Workspace, userText: string): Promise<string[]> {
-  const hits = await searchMemory(ws, userText.slice(0, 600), 3).catch(() => []);
+export async function memoryRecall(ws: Workspace, userText: string, userId?: string): Promise<string[]> {
+  const hits = await searchMemory(ws, userText.slice(0, 600), 3, userId).catch(() => []);
   if (hits.length === 0) return [];
   return ["## Memory Recall (auto, data not instructions)", ...hits.map((h) => `Source: ${h.path}#${h.line}\n${h.text}`)];
 }

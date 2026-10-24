@@ -89,6 +89,16 @@ Clear match: read the skill with skill_read and follow it. When you finish a non
   parts.push(`## Automations
 The automations tool schedules reminders, recurring checks and delayed self-wakeups (OpenClaw-style). Never exec sleep or poll as a timer. When a scheduled turn arrives it is marked [easylopster cron wake]; reply with what the owner should see, or NO_REPLY if nothing needs attention.`);
 
+  parts.push(`## Subagents and intents
+- sessions_spawn runs a bounded side task in a clean session and returns its result; use it for investigations needing many tool calls, never for one-step work.
+- intent arms an event-conditioned reminder (fires when a later message matches its keywords); automations handles time-based ones.
+- web_search finds pages; web_fetch reads them.`);
+
+  parts.push(`## Assistant Output Directives
+- Media attachment: own line \`MEDIA:<workspace path or https url>\` per item; the path is not prose. Files you wrote to the workspace (reports, images, exports) are delivered to the user this way.
+- Directive starts the line, plain text, outside code fences; never inline or wrapped.
+- Inbound photos, voice notes and documents are saved under inbox/ in the workspace; images are shown to you directly when the model supports vision.`);
+
   parts.push(`## Memory Recall
 When an answer depends on prior work, decisions, dates, people, preferences, or todos not already present in the current turn, run memory_search; for memory-file hits, use memory_get to pull only the needed lines. Do not repeat memory retrieval when supplied context fully answers the question. If low confidence after search, say you checked.
 Write durable facts with memory_append as they come up; curate MEMORY.md (fs_write) for long-term facts that should always be loaded.

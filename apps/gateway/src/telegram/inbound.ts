@@ -8,6 +8,11 @@ import { redis } from "../redis.ts";
 import { abortKey } from "../agent/pubsub.ts";
 import { decideApproval } from "../agent/approvals.ts";
 import type { NodeServer } from "../nodes/server.ts";
+import { Workspace } from "../workspace/fs.ts";
+import { collectInboundMedia, sendMedia } from "./media.ts";
+import { maybeCompact, SUMMARIZE_INSTRUCTIONS } from "../agent/session.ts";
+import { generateText } from "ai";
+import { resolveModel } from "../agent/providers.ts";
 
 type BotFull = Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
 
@@ -35,9 +40,12 @@ interface TgMessage {
   entities?: { type: string; offset: number; length: number; user?: TgUser }[];
   reply_to_message?: TgMessage;
   forward_origin?: { type: string; sender_user?: TgUser; sender_user_name?: string; chat?: TgChat; date: number };
-  photo?: unknown;
-  document?: { file_name?: string };
-  voice?: unknown;
+  photo?: { file_id: string; file_size?: number; width: number; height: number }[];
+  document?: { file_id: string; file_size?: number; mime_type?: string; file_name?: string };
+  voice?: { file_id: string; file_size?: number; duration?: number };
+  audio?: { file_id: string; file_size?: number; file_name?: string; mime_type?: string };
+  video?: { file_id: string; file_size?: number; file_name?: string };
+  video_note?: { file_id: string; file_size?: number };
   sticker?: { emoji?: string };
   location?: { latitude: number; longitude: number };
 }
@@ -166,7 +174,18 @@ async function handleCommand(bot: BotFull, m: TgMessage, cmd: string, args: stri
     case "help":
       await tg.sendMarkdown(
         chatId,
-        ["/new - Start a new session", "/reset - Reset the current session", "/status - Show current status", "/model [id] - Show or set the model for this chat", "/whoami - Show your sender id", "/stop - Stop the current run"].join("\n"),
+        [
+          "/new - Start a new session",
+          "/reset - Reset the current session",
+          "/status - Show current status",
+          "/model [id] - Show or set the model for this chat",
+          "/think off|low|medium|high - Thinking level for this chat",
+          "/usage - Today's usage",
+          "/compact - Compact the session context now",
+          "/activation mention|always - Group activation mode",
+          "/whoami - Show your sender id",
+          "/stop - Stop the current run",
+        ].join("\n"),
         opts,
       );
       return true;
@@ -207,8 +226,79 @@ async function handleCommand(bot: BotFull, m: TgMessage, cmd: string, args: stri
       await tg.sendMarkdown(chatId, next ? `Model for this chat set to \`${next}\`. Use /model default to go back to the bot default.` : `Model override cleared; using the bot default \`${bot.model}\`.`, opts);
       return true;
     }
+    case "think":
+    case "thinking":
+    case "t": {
+      const level = args.trim().toLowerCase();
+      if (!["off", "low", "medium", "high", "default"].includes(level)) {
+        await tg.sendText(chatId, `Usage: /think off|low|medium|high (default = bot setting). Current: ${(await db.conversation.findUnique({ where: { botId_sessionKey: { botId: bot.id, sessionKey } } }))?.thinkingOverride ?? bot.thinking}`, opts);
+        return true;
+      }
+      const c = await getOrCreateConversation(bot.id, sessionKey, m.chat.type === "private" ? "dm" : "group", { tgChatId: String(chatId) });
+      await db.conversation.update({ where: { id: c.id }, data: { thinkingOverride: level === "default" ? null : level } });
+      await tg.sendText(chatId, `Thinking level for this chat: ${level === "default" ? bot.thinking + " (bot default)" : level}.`, opts);
+      return true;
+    }
+    case "usage": {
+      const day = new Date();
+      day.setUTCHours(0, 0, 0, 0);
+      const rows = await db.usageDaily.findMany({ where: { userId: bot.userId, day } });
+      const sum = rows.reduce((a, r) => ({ m: a.m + r.messages, i: a.i + r.tokensIn, o: a.o + r.tokensOut, t: a.t + r.toolCalls }), { m: 0, i: 0, o: 0, t: 0 });
+      await tg.sendMarkdown(chatId, `**Today (UTC, all bots)**\nMessages: ${sum.m}\nTokens in/out: ${sum.i} / ${sum.o}\nTool calls: ${sum.t}`, opts);
+      return true;
+    }
+    case "compact": {
+      const conv = await db.conversation.findUnique({ where: { botId_sessionKey: { botId: bot.id, sessionKey } } });
+      if (!conv || !bot.providerKey) {
+        await tg.sendText(chatId, "Nothing to compact.", opts);
+        return true;
+      }
+      const model = resolveModel(bot.providerKey, conv.modelOverride || bot.model || bot.providerKey.defaultModel, "off").model;
+      const ok = await maybeCompact(conv, async (t) => (await generateText({ model, system: SUMMARIZE_INSTRUCTIONS + (args ? `\nExtra instructions: ${args}` : ""), prompt: t, maxRetries: 1 })).text, true)
+        .then(() => true)
+        .catch(() => false);
+      await tg.sendText(chatId, ok ? "Session compacted; older turns were folded into a summary." : "Compaction failed or nothing to fold.", opts);
+      return true;
+    }
+    case "activation": {
+      if (m.chat.type === "private") {
+        await tg.sendText(chatId, "Activation applies to groups only.", opts);
+        return true;
+      }
+      const mode = args.trim().toLowerCase();
+      if (!["mention", "always", "default"].includes(mode)) {
+        await tg.sendText(chatId, "Usage: /activation mention|always|default", opts);
+        return true;
+      }
+      const c = await getOrCreateConversation(bot.id, sessionKey, "group", { tgChatId: String(chatId) });
+      await db.conversation.update({ where: { id: c.id }, data: { activationOverride: mode === "default" ? null : mode } });
+      await tg.sendText(chatId, mode === "always" ? "Activation: always-on for this group (session-scoped)." : mode === "mention" ? "Activation: trigger-only (mentions)." : "Activation: bot default.", opts);
+      return true;
+    }
     default:
       return false;
+  }
+}
+
+/** Session reset policies (OpenClaw session.reset): daily at a local hour, or after idle minutes. */
+async function applyResetPolicy(bot: BotFull, sessionKey: string): Promise<void> {
+  if (bot.sessionReset === "none") return;
+  const conv = await db.conversation.findUnique({ where: { botId_sessionKey: { botId: bot.id, sessionKey } } });
+  if (!conv) return;
+  const tz = bot.user.timezone || "UTC";
+  const now = new Date();
+  let reset = false;
+  if (bot.sessionReset === "idle") {
+    const last = conv.lastMessageAt ?? conv.startedAt;
+    reset = now.getTime() - last.getTime() > bot.resetIdleMinutes * 60_000;
+  } else if (bot.sessionReset === "daily") {
+    const day = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hour12: false }).format(now));
+    reset = day(conv.startedAt) < day(now) && hour >= bot.resetAtHour;
+  }
+  if (reset) {
+    await archiveConversation(bot.id, sessionKey);
+    log(`session reset (${bot.sessionReset}) bot=${bot.id} key=${sessionKey}`);
   }
 }
 
@@ -217,15 +307,19 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
     await handleCallback(bot, update.callback_query);
     return;
   }
-  const m = update.message;
-  if (!m) return; // edits, membership changes: later
+  const edited = !update.message && !!update.edited_message;
+  const m = update.message ?? update.edited_message;
+  if (!m) return; // membership changes etc.
   if (!m.from || m.from.is_bot) return;
   const token = decrypt(bot.encToken);
   const tg = new TelegramSender(token);
   const chatType: "direct" | "group" = m.chat.type === "private" ? "direct" : "group";
   const sender = m.from;
   const rawText = (m.text ?? m.caption ?? "").trim();
-  const bodyText = [rawText, describeNonText(m)].filter(Boolean).join("\n").trim();
+  const ws = new Workspace(bot.userId, bot.id);
+  await ws.ensure();
+  const media = m.photo || m.document || m.voice || m.audio || m.video || m.video_note || m.sticker ? await collectInboundMedia(tg.api, token, ws, bot.userId, bot.user.timezone || "UTC", m) : { notes: [], images: [] };
+  const bodyText = [edited ? "[edited message]" : "", rawText, ...media.notes].filter(Boolean).join("\n").trim();
 
   // ── Access control ──
   if (chatType === "direct") {
@@ -240,7 +334,16 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
   } else {
     if (bot.groupPolicy === "disabled") return;
     if (bot.groupPolicy === "allowlist" && !(await isAllowed(bot.id, "group", String(m.chat.id)))) return;
-    if (bot.requireMention && !wasMentioned(bot, m)) return;
+    const groupConv = await db.conversation.findUnique({ where: { botId_sessionKey: { botId: bot.id, sessionKey } }, select: { activationOverride: true } });
+    const requireMention = groupConv?.activationOverride ? groupConv.activationOverride === "mention" : bot.requireMention;
+    if (requireMention && !wasMentioned(bot, m)) {
+      // Unaddressed group chatter is recorded as context (history window) but gets no reply.
+      if (rawText && !rawText.startsWith("/")) {
+        const c = await getOrCreateConversation(bot.id, sessionKey, "group", { tgChatId: String(m.chat.id), tgThreadId: m.message_thread_id ? String(m.message_thread_id) : undefined, title: m.chat.title });
+        await db.message.create({ data: { conversationId: c.id, role: "user", content: { text: rawText, unaddressed: true }, text: `${senderLabel(sender)}: ${rawText}`, senderTgId: String(sender.id), senderName: senderLabel(sender), tgMessageId: String(m.message_id) } }).catch(() => {});
+      }
+      return;
+    }
   }
 
   // ── Commands ──
@@ -265,6 +368,8 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
   }
 
   // ── Run ──
+  await applyResetPolicy(bot, sessionKey);
+  if (bot.ackReaction) await tg.react(m.chat.id, m.message_id, bot.ackReaction);
   const conversation = await getOrCreateConversation(bot.id, sessionKey, chatType === "direct" ? "dm" : "group", {
     tgChatId: String(m.chat.id),
     tgThreadId: m.message_thread_id ? String(m.message_thread_id) : undefined,
@@ -288,15 +393,19 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
       tgMessageId: String(m.message_id),
       nodes,
       approvalChannel: { kind: "telegram", sender: tg, chatId: m.chat.id, threadId: m.message_thread_id },
+      images: media.images,
       onDelta: draft ? (t) => draft.update(t) : undefined,
     });
     stopTyping();
-    if (out.silent || !out.text) {
+    if (out.silent || (!out.text && out.media.length === 0)) {
       await draft?.discard();
       return;
     }
-    if (draft) await draft.finish(out.text);
-    else await tg.sendMarkdown(m.chat.id, out.text, { threadId: m.message_thread_id, replyTo });
+    if (out.text) {
+      if (draft) await draft.finish(out.text);
+      else await tg.sendMarkdown(m.chat.id, out.text, { threadId: m.message_thread_id, replyTo });
+    } else await draft?.discard();
+    if (out.media.length) await sendMedia(tg.api, m.chat.id, ws, out.media, m.message_thread_id);
   } catch (err) {
     stopTyping();
     await draft?.discard();

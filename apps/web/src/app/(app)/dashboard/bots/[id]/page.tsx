@@ -50,6 +50,9 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
         description={`${bot.tgUsername ? `@${bot.tgUsername}` : "unverified"} · ${bot.status}${bot.webhookSetAt ? " · webhook set" : " · webhook missing"}`}
         action={
           <div className="flex gap-2">
+            <Link href={`/dashboard/bots/${bot.id}/conversations`} className="btn-secondary">
+              Conversations
+            </Link>
             <Link href={`/dashboard/bots/${bot.id}/files`} className="btn-secondary">
               Workspace
             </Link>
@@ -126,6 +129,11 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
               streaming: bot.streaming,
               replyToMode: bot.replyToMode,
               exec: (bot.toolPolicy as { exec?: string } | null)?.exec ?? "off",
+              sessionReset: bot.sessionReset,
+              resetAtHour: bot.resetAtHour,
+              resetIdleMinutes: bot.resetIdleMinutes,
+              ackReaction: bot.ackReaction,
+              dreaming: bot.dreaming,
             }}
             keys={keys.map((k) => ({
               id: k.id,

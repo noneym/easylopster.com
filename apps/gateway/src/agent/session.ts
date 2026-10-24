@@ -65,11 +65,12 @@ export async function saveMessage(conversationId: string, data: Omit<Parameters<
  * Cheap compaction: when a conversation grows past the threshold, fold everything but the most
  * recent messages into the summary using the same model, then delete the folded rows.
  */
-export async function maybeCompact(conversation: Conversation, summarize: (text: string) => Promise<string>): Promise<void> {
+export async function maybeCompact(conversation: Conversation, summarize: (text: string) => Promise<string>, force = false): Promise<void> {
   const count = await db.message.count({ where: { conversationId: conversation.id } });
-  if (count < COMPACT_AFTER_MESSAGES) return;
+  if (!force && count < COMPACT_AFTER_MESSAGES) return;
+  if (force && count <= 4) return;
   const rows = await db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: "asc" } });
-  const old = rows.slice(0, rows.length - KEEP_RECENT_ON_COMPACT);
+  const old = rows.slice(0, rows.length - (force ? 4 : KEEP_RECENT_ON_COMPACT));
   if (old.length === 0) return;
   const transcript = old.map((m) => `${m.role}: ${m.text ?? ""}`).join("\n").slice(0, 160_000);
   const prior = conversation.summary ? `Previous summary:\n${conversation.summary}\n\n` : "";

@@ -57,7 +57,8 @@ export async function handleInbound(job: InboundJob, _ctx: InboundContext): Prom
       onDelta: (t) => void publishChat(conversation.id, { type: "delta", text: t }),
       onTool: (name, status) => void publishChat(conversation.id, { type: "tool", name, status }),
     });
-    await publishChat(conversation.id, { type: "final", text: out.text, messageId: out.messageId });
+    const finalText = out.media.length ? `${out.text}${out.text ? "\n\n" : ""}${out.media.map((m) => `📎 ${m}`).join("\n")}` : out.text;
+    await publishChat(conversation.id, { type: "final", text: finalText, messageId: out.messageId });
   } catch (err) {
     await publishChat(conversation.id, { type: "error", message: err instanceof Error ? err.message : String(err) });
   }

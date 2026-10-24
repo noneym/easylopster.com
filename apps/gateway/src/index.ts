@@ -10,6 +10,7 @@ import { startTelegramPolling } from "./telegram/polling.ts";
 import { sandboxAvailable, sandboxExec, startSandboxReaper } from "./sandbox/docker.ts";
 import { handleWorkspaceHttp } from "./workspace/http.ts";
 import { startAutomationScheduler } from "./agent/automations.ts";
+import { startDreaming } from "./agent/dreaming.ts";
 
 const log = (msg: string, extra?: unknown) =>
   console.log(`[gateway] ${new Date().toISOString()} ${msg}`, extra ?? "");
@@ -83,12 +84,14 @@ async function main() {
   const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};
   const stopSandbox = sandboxAvailable() ? startSandboxReaper() : () => {};
   const stopAutomations = process.env.AUTOMATIONS_ENABLED === "0" ? () => {} : startAutomationScheduler();
+  const stopDreaming = process.env.DREAMING_ENABLED === "0" ? () => {} : startDreaming();
 
   const shutdown = async (sig: string) => {
     log(`${sig} received, shutting down`);
     stopPolling();
     stopSandbox();
     stopAutomations();
+    stopDreaming();
     await worker.close();
     nodeServer.close();
     server.close();

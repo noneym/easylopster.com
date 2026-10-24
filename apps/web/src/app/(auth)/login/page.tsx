@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
   const next = typeof sp.next === "string" ? sp.next : undefined;
-  return <AuthForm mode="login" next={next} />;
+  return <AuthForm mode="login" next={next} google={!!process.env.GOOGLE_CLIENT_ID} oauthError={sp.error === "oauth"} />;
 }

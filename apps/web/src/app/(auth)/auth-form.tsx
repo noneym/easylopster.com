@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { login, register, type AuthState } from "./actions";
 
-export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: string }) {
+export function AuthForm({ mode, next, google, oauthError }: { mode: "login" | "register"; next?: string; google?: boolean; oauthError?: boolean }) {
   const action = mode === "login" ? login : register;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, undefined);
   const fe = state?.fieldErrors ?? {};
@@ -35,6 +35,11 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
         </p>
       </div>
 
+      {oauthError && (
+        <div role="alert" className="rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-fg">
+          Google sign-in did not complete. Try again or use email.
+        </div>
+      )}
       {state?.error && (
         <div role="alert" className="rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-fg">
           {state.error}
@@ -78,6 +83,11 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
       <button type="submit" disabled={pending} className="btn-primary w-full">
         {pending ? "One moment" : mode === "login" ? "Sign in" : "Create account"}
       </button>
+      {google && (
+        <a href={`/api/auth/google${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="btn-secondary w-full">
+          Continue with Google
+        </a>
+      )}
     </form>
   );
 }

@@ -4,7 +4,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav } from "@/components/app/sidebar-nav";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { requireUser } from "@/lib/auth";
-import { logout } from "@/app/(auth)/actions";
+import { logout, resendVerification } from "@/app/(auth)/actions";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const user = await requireUser();
@@ -47,7 +47,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             </form>
           </div>
         </header>
-        <main className="flex-1 px-4 sm:px-8 py-8 max-w-6xl w-full">{children}</main>
+        <main className="flex-1 px-4 sm:px-8 py-8 max-w-6xl w-full">
+          {!user.emailVerifiedAt && process.env.EMAIL_VERIFICATION === "on" && (
+            <form action={resendVerification} className="mb-6 flex flex-wrap items-center gap-3 rounded-md border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+              <span>Please verify your email address. Check your inbox for the link.</span>
+              <button type="submit" className="btn-secondary h-8">
+                Resend email
+              </button>
+            </form>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
+import { sendVerificationEmail } from "@/lib/verification";
 
 export type AuthState = { error?: string; fieldErrors?: Record<string, string> } | undefined;
 
@@ -43,7 +44,15 @@ export async function register(_prev: AuthState, formData: FormData): Promise<Au
     },
   });
   await createSession(user.id);
+  if (!user.emailVerifiedAt) await sendVerificationEmail(user.id, user.email).catch(() => false);
   redirect(safeNext(formData.get("next")));
+}
+
+export async function resendVerification() {
+  const { getCurrentUser } = await import("@/lib/auth");
+  const user = await getCurrentUser();
+  if (!user || user.emailVerifiedAt) return;
+  await sendVerificationEmail(user.id, user.email).catch(() => false);
 }
 
 export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {
