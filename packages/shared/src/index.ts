@@ -2,6 +2,7 @@ export * from "./crypto";
 export * from "./providers";
 export * from "./env";
 export * from "./node-protocol";
+export * from "./version";
 
 /** BullMQ queue names shared by web (producer) and gateway (consumer). */
 export const QUEUES = {

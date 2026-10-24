@@ -1,10 +1,12 @@
 {
   "name": "easylopster-node",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "description": "easylopster node agent: connects your machine (or a Docker container) to your easylopster.com account.",
   "type": "module",
-  "bin": { "easylopster-node": "./dist/index.js" },
+  "bin": {
+    "easylopster-node": "./dist/index.mjs"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsdown",

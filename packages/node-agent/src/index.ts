@@ -19,8 +19,9 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import WebSocket from "ws";
 import { PROTOCOL_VERSION, gatewayToNodeFrameSchema, type NodeCapability, type NodeToGatewayFrame } from "@easylopster/shared/node-protocol";
+import { APP_VERSION } from "@easylopster/shared/version";
 
-const VERSION = "0.1.0";
+const VERSION = APP_VERSION;
 const DEFAULT_GATEWAY = "wss://gw.easylopster.com/ws";
 const CAPS: NodeCapability[] = ["fs.read", "fs.write", "fs.list", "fs.search", "exec", "system.which", "system.notify", "device.info"];
 const MAX_OUTPUT = 24_000;

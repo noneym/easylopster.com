@@ -5,6 +5,7 @@ import { SidebarNav } from "@/components/app/sidebar-nav";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { requireUser } from "@/lib/auth";
 import { logout, resendVerification } from "@/app/(auth)/actions";
+import { APP_VERSION } from "@easylopster/shared/version";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const user = await requireUser();
@@ -20,6 +21,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <div className="border-t border-line pt-3 px-1">
           <p className="truncate text-sm font-medium px-2">{user.name ?? user.email}</p>
           <p className="truncate text-xs text-fg-muted px-2">{user.email}</p>
+          <p className="px-2 text-[10px] text-fg-faint font-mono">v{APP_VERSION}</p>
           <div className="mt-2 flex items-center justify-between">
             <ThemeToggle />
             <form action={logout}>

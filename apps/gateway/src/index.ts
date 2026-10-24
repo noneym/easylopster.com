@@ -1,6 +1,6 @@
 import http from "node:http";
 import { Worker, type Job } from "bullmq";
-import { QUEUES, queuePrefix } from "@easylopster/shared";
+import { APP_VERSION, QUEUES, queuePrefix } from "@easylopster/shared";
 import { db } from "@easylopster/db";
 import { env } from "./env.ts";
 import { createRedis, redis } from "./redis.ts";
@@ -23,7 +23,7 @@ async function main() {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/health") {
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      res.end(JSON.stringify({ ok: true, uptime: Math.round(process.uptime()) }));
+      res.end(JSON.stringify({ ok: true, version: APP_VERSION, uptime: Math.round(process.uptime()) }));
       return;
     }
     if (url.pathname.startsWith("/internal/")) {

@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/shared",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,7 +10,8 @@
     "./env": "./src/env.ts",
     "./node-protocol": "./src/node-protocol.ts",
     "./markdown": "./src/markdown.ts",
-    "./mcp": "./src/mcp.ts"
+    "./mcp": "./src/mcp.ts",
+    "./version": "./src/version.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
