@@ -28,6 +28,7 @@ model User {
   nodes        Node[]
   usage        UsageDaily[]
   emailTokens  EmailToken[]
+  secrets      Secret[]
 }
 
 model Session {
@@ -141,6 +142,7 @@ model Bot {
   nodes         BotNode[]
   usage         UsageDaily[]
   approvals     ToolApproval[]
+  secrets       BotSecret[]
 
   @@unique([platform, tgBotId])
   @@index([userId])
@@ -338,4 +340,34 @@ model UsageDaily {
 
   @@unique([userId, botId, day])
   @@index([userId, day])
+}
+
+// ───────────────────────────── Secrets ─────────────────────────────
+
+/// Owner credentials the agent may use without ever seeing them: injected as environment
+/// variables into sandbox/node exec. Values are AES-GCM encrypted at rest.
+model Secret {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ENV_STYLE_NAME, unique per user
+  name        String
+  encValue    String   @db.Text
+  description String?  @db.VarChar(300)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bots BotSecret[]
+
+  @@unique([userId, name])
+}
+
+model BotSecret {
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  secretId  String
+  secret    Secret   @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([botId, secretId])
 }

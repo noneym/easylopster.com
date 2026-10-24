@@ -9,6 +9,7 @@ import { BotSettingsForm } from "./bot-settings-form";
 import { AllowlistForm } from "./allowlist-form";
 import { BotMcpForm } from "./bot-mcp-form";
 import { BotNodesForm } from "./bot-nodes-form";
+import { BotSecretsForm } from "./bot-secrets-form";
 import { onlineNodeIds } from "../../nodes/actions";
 
 export const metadata = { title: "Bot" };
@@ -16,13 +17,14 @@ export const metadata = { title: "Bot" };
 export default async function BotDetailPage({ params }: PageProps<"/dashboard/bots/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const [bot, keys, mcpServers, nodes, online] = await Promise.all([
+  const [bot, keys, mcpServers, nodes, online, secrets] = await Promise.all([
     db.bot.findFirst({
       where: { id, userId: user.id },
       include: {
         allowlist: { orderBy: { createdAt: "asc" } },
         mcps: true,
         nodes: true,
+        secrets: true,
         pairings: { where: { status: "pending", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } },
         _count: { select: { conversations: true } },
       },
@@ -31,6 +33,7 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
     db.mcpServer.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     db.node.findMany({ where: { userId: user.id, status: { not: "revoked" } }, orderBy: { createdAt: "asc" } }),
     onlineNodeIds(),
+    db.secret.findMany({ where: { userId: user.id }, orderBy: { name: "asc" }, select: { id: true, name: true, description: true } }),
   ]);
   if (!bot) notFound();
 
@@ -45,6 +48,9 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
         description={`${bot.tgUsername ? `@${bot.tgUsername}` : "unverified"} · ${bot.status}${bot.webhookSetAt ? " · webhook set" : " · webhook missing"}`}
         action={
           <div className="flex gap-2">
+            <Link href={`/dashboard/bots/${bot.id}/files`} className="btn-secondary">
+              Workspace
+            </Link>
             <Link href={`/dashboard/bots/${bot.id}/chat`} className="btn-secondary">
               Web chat
             </Link>
@@ -173,6 +179,8 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
             }))}
             linked={bot.nodes.map((l) => l.nodeId)}
           />
+
+          <BotSecretsForm botId={bot.id} secrets={secrets} linked={bot.secrets.map((l) => l.secretId)} />
         </div>
 
         <aside className="space-y-4">

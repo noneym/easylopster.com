@@ -1,7 +1,7 @@
 import { Api } from "grammy";
 import { Queue } from "bullmq";
 import { db } from "@easylopster/db";
-import { QUEUES } from "@easylopster/shared";
+import { QUEUES, queuePrefix } from "@easylopster/shared";
 import { decrypt } from "@easylopster/shared/crypto";
 import { createRedis } from "../redis.ts";
 import type { InboundJob } from "../agent/inbound.ts";
@@ -13,7 +13,7 @@ import type { InboundJob } from "../agent/inbound.ts";
  * we delete the webhook for polled bots).
  */
 export function startTelegramPolling(): () => void {
-  const queue = new Queue<InboundJob>(QUEUES.inbound, { connection: createRedis() });
+  const queue = new Queue<InboundJob>(QUEUES.inbound, { connection: createRedis(), prefix: queuePrefix() });
   const pollers = new Map<string, { stop: () => void }>();
   let stopped = false;
   const log = (m: string) => console.log(`[tg-poll] ${new Date().toISOString()} ${m}`);

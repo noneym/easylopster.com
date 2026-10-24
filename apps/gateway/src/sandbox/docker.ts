@@ -159,7 +159,7 @@ export interface ExecResult {
   durationMs: number;
 }
 
-export async function sandboxExec(userId: string, botId: string, command: string, opts: { timeoutSec?: number; cwd?: string } = {}): Promise<ExecResult> {
+export async function sandboxExec(userId: string, botId: string, command: string, opts: { timeoutSec?: number; cwd?: string; env?: Record<string, string> } = {}): Promise<ExecResult> {
   const timeoutSec = Math.min(Math.max(opts.timeoutSec ?? DEFAULT_TIMEOUT_S, 1), MAX_TIMEOUT_S);
   const c = await ensureContainer(userId, botId);
   const started = Date.now();
@@ -167,6 +167,7 @@ export async function sandboxExec(userId: string, botId: string, command: string
     Cmd: ["timeout", "-k", "5", String(timeoutSec), "bash", "-lc", command],
     AttachStdout: true,
     AttachStderr: true,
+    Env: Object.entries(opts.env ?? {}).map(([k, v]) => `${k}=${v}`),
     WorkingDir: opts.cwd ? path.posix.join("/workspace", opts.cwd.replace(/^\/+/, "")) : "/workspace",
   });
   const stream = await exec.start({ hijack: true, stdin: false });

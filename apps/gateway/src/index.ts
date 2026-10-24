@@ -1,6 +1,6 @@
 import http from "node:http";
 import { Worker, type Job } from "bullmq";
-import { QUEUES } from "@easylopster/shared";
+import { QUEUES, queuePrefix } from "@easylopster/shared";
 import { db } from "@easylopster/db";
 import { env } from "./env.ts";
 import { createRedis, redis } from "./redis.ts";
@@ -8,6 +8,7 @@ import { attachNodeServer } from "./nodes/server.ts";
 import { handleInbound, type InboundJob } from "./agent/inbound.ts";
 import { startTelegramPolling } from "./telegram/polling.ts";
 import { sandboxAvailable, sandboxExec, startSandboxReaper } from "./sandbox/docker.ts";
+import { handleWorkspaceHttp } from "./workspace/http.ts";
 
 const log = (msg: string, extra?: unknown) =>
   console.log(`[gateway] ${new Date().toISOString()} ${msg}`, extra ?? "");
@@ -28,6 +29,7 @@ async function main() {
         res.writeHead(401).end();
         return;
       }
+      if (await handleWorkspaceHttp(req, res, url)) return;
       if (url.pathname === "/internal/nodes/online") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ nodes: nodeServer.onlineNodeIds() }));
@@ -64,6 +66,7 @@ async function main() {
     },
     {
       connection: createRedis(),
+      prefix: queuePrefix(),
       concurrency: Number(process.env.GATEWAY_CONCURRENCY ?? 8),
     },
   );
@@ -73,7 +76,7 @@ async function main() {
   await redis().ping();
   await db.$queryRaw`SELECT 1`;
 
-  server.listen(e.GATEWAY_PORT, "0.0.0.0", () => log(`listening on :${e.GATEWAY_PORT} (ws: ${e.GATEWAY_WS_URL})`));
+  server.listen(e.GATEWAY_PORT, "0.0.0.0", () => log(`listening on :${e.GATEWAY_PORT} (ws: ${e.GATEWAY_WS_URL}, queue prefix ${queuePrefix()})`));
 
   // Dev only: pull Telegram updates when there is no public webhook URL.
   const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};

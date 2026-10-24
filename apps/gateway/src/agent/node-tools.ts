@@ -10,6 +10,8 @@ export interface NodeToolContext {
   conversationId?: string;
   nodes: NodeServer;
   channel?: ApprovalChannel;
+  /** secrets injected into node exec as environment variables */
+  env?: Record<string, string>;
 }
 
 function slug(name: string) {
@@ -117,7 +119,7 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
             });
             if (d !== "approved") return { error: d === "denied" ? "The owner denied this command." : "Approval request expired; the command was not run." };
           }
-          return safe(() => call("exec", { command, timeoutSec, cwd }, ((timeoutSec ?? 60) + 15) * 1000));
+          return safe(() => call("exec", { command, timeoutSec, cwd, env: ctx.env ?? {} }, ((timeoutSec ?? 60) + 15) * 1000));
         },
       });
     }

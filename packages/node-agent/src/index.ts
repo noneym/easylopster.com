@@ -108,12 +108,13 @@ async function search(root: string, query: string, maxResults: number) {
   return { hits };
 }
 
-function exec(root: string, command: string, timeoutSec = 60, cwd?: string) {
+function exec(root: string, command: string, timeoutSec = 60, cwd?: string, extraEnv: Record<string, string> = {}) {
   const dir = cwd ? jail(root, cwd) : root;
   const isWin = process.platform === "win32";
+  const env = { ...process.env, ...extraEnv };
   const child = isWin
-    ? spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command], { cwd: dir, windowsHide: true })
-    : spawn("bash", ["-lc", command], { cwd: dir });
+    ? spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command], { cwd: dir, windowsHide: true, env })
+    : spawn("bash", ["-lc", command], { cwd: dir, env });
   let stdout = "";
   let stderr = "";
   const started = Date.now();
@@ -194,7 +195,7 @@ async function handle(root: string, method: NodeCapability, p: Record<string, un
     case "fs.search":
       return search(root, String(p.query), Number(p.maxResults ?? 40));
     case "exec":
-      return exec(root, String(p.command), p.timeoutSec ? Number(p.timeoutSec) : 60, p.cwd ? String(p.cwd) : undefined);
+      return exec(root, String(p.command), p.timeoutSec ? Number(p.timeoutSec) : 60, p.cwd ? String(p.cwd) : undefined, (p.env && typeof p.env === "object" ? (p.env as Record<string, string>) : {}));
     case "system.which":
       return which(String(p.name));
     case "system.notify":

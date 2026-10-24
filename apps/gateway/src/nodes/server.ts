@@ -94,11 +94,13 @@ export function attachNodeServer(server: http.Server, path: string): NodeServer 
     ws.on("close", async () => {
       clearTimeout(connectTimer);
       if (!node) return;
-      live.delete(node.nodeId);
       for (const p of node.pending.values()) {
         clearTimeout(p.timer);
         p.reject(new Error("node disconnected"));
       }
+      // A reconnect may already have replaced this socket; only the current socket may mark the node offline.
+      if (live.get(node.nodeId)?.ws !== ws) return;
+      live.delete(node.nodeId);
       await db.node.update({ where: { id: node.nodeId }, data: { status: "offline", lastSeenAt: new Date() } }).catch(() => {});
     });
   });

@@ -15,6 +15,9 @@ import { sandboxAvailable } from "../sandbox/docker.ts";
 import { nodeToolsForBot } from "./node-tools.ts";
 import type { ApprovalChannel } from "./approvals.ts";
 import type { NodeServer } from "../nodes/server.ts";
+import { loadSkills, skillsCatalog, skillTools } from "./skills.ts";
+import { memoryFlush, memoryRecall, memoryTools } from "./memory.ts";
+import { loadBotSecrets, secretsTools } from "./secrets.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -92,9 +95,20 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   const mcp = await mcpToolsForBot(bot.id);
   const policy = (bot.toolPolicy ?? {}) as { exec?: string };
-  const execTools = policy.exec === "sandbox" && sandboxAvailable() ? sandboxTools(bot.userId, bot.id) : {};
-  const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel }) : { tools: {}, summary: [] };
-  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...execTools, ...mcp.tools, ...nodeTools.tools, ...(input.extraTools ?? {}) };
+  const secrets = await loadBotSecrets(bot.id);
+  const execTools = policy.exec === "sandbox" && sandboxAvailable() ? sandboxTools(bot.userId, bot.id, secrets.env) : {};
+  const skills = await loadSkills(ws);
+  const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel, env: secrets.env }) : { tools: {}, summary: [] };
+  const tools: ToolSet = {
+    ...builtinTools({ ws, timezone, now: () => new Date() }),
+    ...memoryTools(ws),
+    ...skillTools(ws, skills),
+    ...(secrets.meta.length ? secretsTools(secrets) : {}),
+    ...execTools,
+    ...mcp.tools,
+    ...nodeTools.tools,
+    ...(input.extraTools ?? {}),
+  };
   console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tools=${Object.keys(tools).join(",")}${mcp.errors.length ? ` mcpErrors=${JSON.stringify(mcp.errors)}` : ""}`);
 
   const system = buildSystemPrompt({
@@ -106,6 +120,8 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     workspaceDir: "/workspace",
     sandbox: Object.keys(execTools).length > 0,
     nodes: nodeTools.summary,
+    skillsCatalog: skillsCatalog(skills, "/workspace"),
+    secretNames: secrets.meta.map((m) => m.name),
     bootstrap,
     toolNames: Object.keys(tools),
     mcpInstructions: mcp.instructions,
@@ -123,6 +139,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
         extra: [
           ...(mcp.errors.length ? ["## MCP", ...mcp.errors.map((e) => `Unavailable this turn: ${e}`)] : []),
           ...(nodeTools.summary.length ? ["## Nodes", ...nodeTools.summary] : []),
+          ...(await memoryRecall(ws, input.storedText)),
         ],
       }),
     },
@@ -234,8 +251,9 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   await recordUsage(bot.userId, bot.id, { messages: 1, tokensIn, tokensOut, toolCalls });
 
-  // Fire-and-forget compaction with the same model.
+  // Fire-and-forget compaction with the same model; durable notes are flushed to memory first (OpenClaw pre-compaction flush).
   void maybeCompact(conversation, async (transcript) => {
+    await memoryFlush(ws, resolved.model, transcript, timezone).catch(() => false);
     const r = await generateText({ model: resolved.model, system: SUMMARIZE_INSTRUCTIONS, prompt: transcript, maxRetries: 1 });
     return r.text;
   }).catch(() => {});

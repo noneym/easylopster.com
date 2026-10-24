@@ -1,7 +1,7 @@
 import "server-only";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
-import { QUEUES } from "@easylopster/shared";
+import { QUEUES, queuePrefix } from "@easylopster/shared";
 
 /** Shape must match apps/gateway/src/agent/inbound.ts InboundJob. */
 export interface InboundJob {
@@ -27,6 +27,7 @@ export function inboundQueue(): Queue<InboundJob> {
   if (!g.elInbound) {
     g.elInbound = new Queue<InboundJob>(QUEUES.inbound, {
       connection: redis(),
+      prefix: queuePrefix(),
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: "exponential", delay: 2000 },

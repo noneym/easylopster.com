@@ -113,13 +113,23 @@ easyclaw/
 
 `DATABASE_URL`, `REDIS_URL`, `ENCRYPTION_KEY` (32 byte base64), `APP_URL=https://easylopster.com`, `SESSION_SECRET`, `SMTP_*`, `GATEWAY_WS_URL=wss://gw.easylopster.com`, `BETA_LIMITS_*`.
 
-## 5b. Durum (24 Ekim 2026, gece)
+## 5b. Durum (24 Ekim 2026, sabah)
 
-- Faz 0-4 kodu tamam ve `main`'de; canlı: https://easylopster.com + wss://gw.easylopster.com.
-- Doğrulananlar: web chat, Telegram (gerçek bot, lokal polling modu), MCP (DeepWiki), node ajanı (Windows, fs + onaylı exec, web chat onay kartı).
-- Faz 3b sandbox exec: kod hazır, canlıda kapalı. Gateway servisine `/var/run/docker.sock` bind mount'u eklenince `SANDBOX_ENABLED=1` yapılıp test edilecek.
-- Node ajanı dağıtımı: `ghcr.io/noneym/easylopster-node` imajı ve tek dosya bundle GitHub Actions ile; `npx easylopster-node` için npm yayını henüz yok.
-- Sıradaki: dashboard dosya tarayıcısı/editör (bulut workspace), Telegram onay akışının gerçek botla testi, kullanım/limit sayfası, e-posta doğrulama (SMTP gelince).
+- Faz 0-4 + ek: workspace dosya editörü, secrets kasası (exec env enjeksiyonu), skills (SKILL.md kataloğu, skill_read/skill_save), hafıza tool'ları (memory_search/memory_get, otomatik recall, compaction öncesi flush). Hepsi lokalde uçtan uca doğrulandı; `main`'de.
+- Canlı: https://easylopster.com + wss://gw.easylopster.com. Faz 3b sandbox exec canlıda `/var/run/docker.sock` mount'unu bekliyor.
+- Lokal geliştirme prod Redis/DB'yi paylaşır: `QUEUE_PREFIX=dev` zorunlu (yoksa prod gateway lokal işleri kapar).
+
+### OpenClaw'a göre eksikler (backlog, öncelik sırasıyla)
+1. **Automations / cron + heartbeat**: zamanlanmış görevler ve "beni hatırlat" (OpenClaw `automations` tool'u, `HEARTBEAT_OK`). Gateway'de BullMQ repeatable job + dashboard listesi.
+2. **Standing intents** (`intent` tool'u): olay tetiklemeli hatırlatıcılar ("X konusu açılınca şunu söyle").
+3. **Subagents** (`sessions_spawn` / `sessions_yield`): ayrı bağlamda yan görev; bizde tek koşu var.
+4. **Dreaming**: arka planda günlük notlardan MEMORY.md'ye terfi (cron job + DREAMS.md).
+5. **Medya girişi**: Telegram'dan gelen fotoğraf/ses/dosyaların workspace'e indirilmesi, görsel anlama ve ses transkripsiyonu; `MEDIA:` ile dosya gönderme, `[[audio_as_voice]]`.
+6. **Web search** tool'u (şu an sadece web_fetch) ve `image` analizi.
+7. **Tam Telegram paritesi**: `edited_message`, reaksiyonlar (ack 👀, statü), forum topic başına agent, `/think`, `/usage`, `/compact`, `/activation`, inline buton aksiyonları (approval dışında), grup geçmiş penceresi (historyLimit).
+8. **Vektör hafıza**: embedding tabanlı arama (şimdi BM25-benzeri anahtar kelime).
+9. **Session yönetimi**: idle/daily reset politikaları, `/session`, dashboard'da konuşma geçmişi görüntüleme ve arama (`sessions_search`).
+10. **Kullanım sayfası** (token/maliyet), e-posta doğrulama (SMTP), Google OAuth.
 
 ## 6. Notlar / riskler
 

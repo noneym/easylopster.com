@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sandboxExec } from "./docker.ts";
 
 /** The `exec` tool backed by the per-bot cloud sandbox. Description mirrors OpenClaw's exec tool intent. */
-export function sandboxTools(userId: string, botId: string, onCall?: (summary: string) => void): ToolSet {
+export function sandboxTools(userId: string, botId: string, env: Record<string, string> = {}, onCall?: (summary: string) => void): ToolSet {
   return {
     exec: tool({
       description:
@@ -16,7 +16,7 @@ export function sandboxTools(userId: string, botId: string, onCall?: (summary: s
       execute: async ({ command, timeoutSec, cwd }) => {
         onCall?.(command.slice(0, 200));
         try {
-          const r = await sandboxExec(userId, botId, command, { timeoutSec, cwd });
+          const r = await sandboxExec(userId, botId, command, { timeoutSec, cwd, env });
           return { exitCode: r.exitCode, timedOut: r.timedOut, durationMs: r.durationMs, stdout: r.stdout, stderr: r.stderr };
         } catch (err) {
           return { error: `sandbox unavailable: ${err instanceof Error ? err.message : String(err)}` };
