@@ -7,7 +7,7 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(v ?? "")) {
   console.error("usage: node scripts/set-version.mjs <semver>");
   process.exit(1);
 }
-const files = ["package.json", "apps/web/package.json", "apps/gateway/package.json", "packages/db/package.json", "packages/shared/package.json", "packages/node-agent/package.json"];
+const files = ["package.json", "apps/web/package.json", "apps/gateway/package.json", "packages/db/package.json", "packages/shared/package.json", "packages/node-agent/package.json", "packages/node-desktop/package.json"];
 for (const f of files) {
   const j = JSON.parse(readFileSync(f, "utf8"));
   j.version = v;

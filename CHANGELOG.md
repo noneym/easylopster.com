@@ -6,6 +6,8 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-24
+
 ### Added
 - Cloudflare Email Service as the mail transport (`MAIL_MAILER=cloudflare`), with SMTP still available; styled verification email.
 - Conversational onboarding (OpenClaw-style BOOTSTRAP.md): a new bot's workspace ships with BOOTSTRAP.md,
@@ -21,6 +23,10 @@ All notable changes to easylopster are documented here. The format follows
 - Web chat catch-up: a pending reply is fetched from the database if the live stream missed it.
 
 ### Changed
+- Brand refresh from the "claw bubble" sheet: new mark and lockup, Bricolage Grotesque + JetBrains Mono,
+  warm paper / ink palette with the #FF4F2E accent, heavier display headings, mono eyebrows; favicon,
+  app icons, Open Graph card, bot avatar and Windows tray/installer icons regenerated from the mark
+  (`node scripts/gen-icons.mjs`).
 - Telegram polling stops polling a bot whose token Telegram rejects (401) and records the error on the bot; web chat keeps working.
 - Windows tray app `easylopster Node` (`packages/node-desktop`, Electron): pair with a code, pick the shared
   folder, see status and activity, start with Windows, native notifications; NSIS installer attached to
@@ -99,5 +105,6 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/noneym/easylopster.com/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/noneym/easylopster.com/releases/tag/v1.0.0

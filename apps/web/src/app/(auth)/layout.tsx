@@ -5,9 +5,9 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="min-h-[100dvh] grid lg:grid-cols-[1.1fr_1fr]">
       <aside className="hidden lg:flex flex-col justify-between p-10 bg-bg-sunk border-r border-line">
-        <Logo />
+        <Logo size={30} />
         <div className="max-w-md">
-          <p className="text-2xl font-medium tracking-tight leading-snug text-fg">
+          <p className="text-3xl font-[650] tracking-[-0.02em] leading-snug text-fg">
             Your assistant, in the chat app you already open fifty times a day.
           </p>
           <p className="mt-4 text-fg-muted leading-relaxed">

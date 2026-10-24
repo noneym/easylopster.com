@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { CheckIcon, PaperPlaneRightIcon, WrenchIcon } from "@phosphor-icons/react";
+import { ClawMark } from "@/components/logo";
 
 /**
  * A working miniature of the product surface: the conversation a user actually has with their bot.
@@ -28,8 +29,8 @@ export function ChatPreview() {
   return (
     <div className="card overflow-hidden shadow-[0_24px_60px_-30px_hsl(var(--shadow-tint)/0.35)]">
       <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-        <span className="size-8 rounded-full bg-accent-soft grid place-items-center text-accent-ink text-xs font-semibold">
-          op
+        <span className="size-9 rounded-full bg-[#111214] grid place-items-center text-accent" aria-hidden>
+          <ClawMark size={22} teeth={false} />
         </span>
         <div className="leading-tight">
           <p className="text-sm font-medium">ops assistant</p>

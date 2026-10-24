@@ -16,7 +16,8 @@ export default function HomePage() {
       {/* ───────────── Hero: asymmetric split ───────────── */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 pt-14 pb-16 md:pt-24 md:pb-24 grid gap-12 lg:grid-cols-[1.05fr_1fr] lg:items-center">
         <div className="max-w-xl">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tighter leading-[1.02]">
+          <p className="eyebrow mb-5">hosted · bring your own key · free beta</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl leading-[1.0]">
             An AI assistant that lives in your Telegram.
           </h1>
           <p className="mt-6 text-lg text-fg-muted leading-relaxed max-w-[48ch]">
@@ -69,7 +70,7 @@ export default function HomePage() {
       {/* ───────────── How it works: vertical steps ───────────── */}
       <section id="how" className="mx-auto max-w-7xl px-4 sm:px-6 py-24 md:py-32 scroll-mt-20">
         <Reveal>
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight max-w-2xl">Three pastes and you have an assistant.</h2>
+          <h2 className="text-3xl md:text-4xl max-w-2xl">Three pastes and you have an assistant.</h2>
         </Reveal>
         <ol className="mt-14 grid gap-px bg-line rounded-lg overflow-hidden border border-line md:grid-cols-3">
           {[
@@ -104,7 +105,7 @@ export default function HomePage() {
       <section id="capabilities" className="border-t border-line bg-bg-sunk/60 scroll-mt-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-24 md:py-32">
           <Reveal>
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight max-w-2xl">
+            <h2 className="text-3xl md:text-4xl max-w-2xl">
               Hosted by default. Yours when you want it.
             </h2>
             <p className="mt-4 text-fg-muted max-w-[60ch] leading-relaxed">
@@ -175,7 +176,7 @@ export default function HomePage() {
       {/* ───────────── Nodes: split with real code ───────────── */}
       <section id="nodes" className="mx-auto max-w-7xl px-4 sm:px-6 py-24 md:py-32 grid gap-12 lg:grid-cols-2 lg:items-center scroll-mt-20">
         <Reveal>
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">Reach your own machines when the cloud is not enough.</h2>
+          <h2 className="text-3xl md:text-4xl">Reach your own machines when the cloud is not enough.</h2>
           <p className="mt-4 text-fg-muted max-w-[58ch] leading-relaxed">
             A node is a small agent you run anywhere. It opens an outbound connection, declares what it can do, and waits.
             Risky commands ask for approval right in the chat.
@@ -204,7 +205,7 @@ docker run -d --name el-node \\
       <section className="border-t border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-20 md:py-28 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
           <div>
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">Free while in beta.</h2>
+            <h2 className="text-3xl md:text-4xl">Free while in beta.</h2>
             <p className="mt-3 text-fg-muted max-w-[50ch] leading-relaxed">
               Three bots, two nodes, five MCP servers per account. Enough to run a small team's worth of assistants.
             </p>

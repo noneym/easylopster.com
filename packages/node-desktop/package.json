@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/node-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "easylopster Node for Windows: a tray app that connects this PC to your easylopster.com account.",
   "productName": "easylopster Node",
@@ -40,7 +40,12 @@
     "asar": true,
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },

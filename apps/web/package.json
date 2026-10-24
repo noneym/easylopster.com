@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -15,7 +15,6 @@
     "@phosphor-icons/react": "^2.1.10",
     "argon2": "^0.45.1",
     "bullmq": "^6.4.1",
-    "geist": "^1.8.2",
     "grammy": "^1.46.0",
     "ioredis": "^6.0.0",
     "motion": "^14.6.0",

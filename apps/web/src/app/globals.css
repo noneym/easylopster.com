@@ -3,38 +3,39 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  Tokens. One accent (coral), zinc neutrals, auto light/dark via the .dark class set in layout
+  Tokens from the "01 Claw bubble" brand sheet: warm paper neutrals (#F4F3F0 / #15120F), ink dark
+  (#111214 / #F4F3F0), one hot accent (#FF4F2E). Auto light/dark via the .dark class set in layout
   from prefers-color-scheme (no flash: inline script in <head>).
 */
 :root {
-  --bg: oklch(0.985 0.002 90);
-  --bg-elev: oklch(1 0 0);
-  --bg-sunk: oklch(0.965 0.003 90);
-  --fg: oklch(0.2 0.01 60);
-  --fg-muted: oklch(0.5 0.012 60);
-  --fg-faint: oklch(0.68 0.01 60);
-  --line: oklch(0.9 0.005 80);
-  --line-strong: oklch(0.82 0.006 80);
-  --accent: oklch(0.64 0.17 32);
-  --accent-fg: oklch(0.99 0.01 32);
-  --accent-soft: oklch(0.95 0.035 32);
-  --accent-ink: oklch(0.5 0.17 32);
-  --radius: 10px;
+  --bg: #f4f3f0;
+  --bg-elev: #ffffff;
+  --bg-sunk: #eceae5;
+  --fg: #15120f;
+  --fg-muted: #5a5650;
+  --fg-faint: #8a867f;
+  --line: #e3e1dc;
+  --line-strong: #d3d0c9;
+  --accent: #ff4f2e;
+  --accent-fg: #ffffff;
+  --accent-soft: #ffe8e2;
+  --accent-ink: #d8361a;
+  --radius: 12px;
   --shadow-tint: 30 20% 20%;
 }
 .dark {
-  --bg: oklch(0.17 0.006 60);
-  --bg-elev: oklch(0.21 0.007 60);
-  --bg-sunk: oklch(0.145 0.006 60);
-  --fg: oklch(0.95 0.005 80);
-  --fg-muted: oklch(0.7 0.01 70);
-  --fg-faint: oklch(0.52 0.01 70);
-  --line: oklch(0.27 0.008 60);
-  --line-strong: oklch(0.34 0.01 60);
-  --accent: oklch(0.72 0.16 32);
-  --accent-fg: oklch(0.18 0.03 32);
-  --accent-soft: oklch(0.27 0.045 32);
-  --accent-ink: oklch(0.8 0.13 32);
+  --bg: #111214;
+  --bg-elev: #1a1b1e;
+  --bg-sunk: #0c0d0f;
+  --fg: #f4f3f0;
+  --fg-muted: #a9a6a0;
+  --fg-faint: #6b6964;
+  --line: #27282c;
+  --line-strong: #36373c;
+  --accent: #ff5e3f;
+  --accent-fg: #15120f;
+  --accent-soft: #3a1d16;
+  --accent-ink: #ff8f74;
   --shadow-tint: 30 10% 2%;
 }
 
@@ -51,10 +52,10 @@
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--font-sans-var), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-var), ui-monospace, SFMono-Regular, monospace;
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) * 1.6);
+  --radius-lg: calc(var(--radius) * 1.67);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -78,6 +79,22 @@ body {
   color: var(--fg);
 }
 
+/* Display type: heavy, tight, like the wordmark */
+h1,
+h2 {
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+h3 {
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* Mono eyebrow label ("01 · claw bubble · applications") */
+.eyebrow {
+  @apply font-mono text-[12px] uppercase tracking-[0.08em] text-fg-muted;
+}
+
 /* Focus ring: visible, accent-tinted, consistent */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
@@ -90,7 +107,7 @@ body {
   @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 h-10 text-sm font-medium transition-[transform,background-color,border-color,color] duration-200 active:translate-y-px disabled:opacity-60 disabled:pointer-events-none;
 }
 .btn-primary {
-  @apply btn bg-accent text-accent-fg hover:brightness-105;
+  @apply btn bg-accent text-accent-fg hover:brightness-[1.06];
 }
 .btn-secondary {
   @apply btn border border-line-strong bg-bg-elev text-fg hover:border-fg-faint;

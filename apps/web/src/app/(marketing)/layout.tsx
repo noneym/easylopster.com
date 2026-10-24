@@ -54,7 +54,7 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
       <footer className="border-t border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12 grid gap-8 md:grid-cols-[1fr_auto] items-start">
           <div>
-            <Logo />
+            <Logo size={28} />
             <p className="mt-3 max-w-sm text-sm text-fg-muted leading-relaxed">
               A hosted reimagining of the OpenClaw idea: one assistant, in your chat app, with your keys and your machines.
             </p>
