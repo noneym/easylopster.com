@@ -60,7 +60,13 @@ export function startTelegramPolling(): () => void {
   }
 
   async function sync() {
-    const bots = await db.bot.findMany({ where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" } }, select: { id: true, encToken: true } });
+    // Dev safety: the database is shared with production, and polling deletes a bot's webhook.
+    // TELEGRAM_POLLING_EMAILS limits polling to bots owned by these accounts (comma separated).
+    const emails = (process.env.TELEGRAM_POLLING_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const bots = await db.bot.findMany({
+      where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" }, ...(emails.length ? { user: { email: { in: emails } } } : {}) },
+      select: { id: true, encToken: true },
+    });
     const ids = new Set(bots.map((b) => b.id));
     for (const [id, p] of pollers) if (!ids.has(id)) (p.stop(), pollers.delete(id), log(`stopped bot=${id}`));
     for (const b of bots) if (!pollers.has(b.id)) pollers.set(b.id, await pollBot(b.id, decrypt(b.encToken)));

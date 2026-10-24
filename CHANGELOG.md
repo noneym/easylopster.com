@@ -10,6 +10,7 @@ All notable changes to easylopster are documented here. The format follows
 - Dashboard forms no longer reset after saving (React 19 action reset), which snapped the model
   picker back to the first entry and made the next save submit the wrong model.
 - Web chat shows a "Thinking" / "Running <tool>" indicator while a reply is pending.
+- Dev polling can be limited to specific accounts (`TELEGRAM_POLLING_EMAILS`) so a local gateway on a shared database never takes over production bots' webhooks.
 
 ## [1.1.1] - 2026-10-24
 
