@@ -113,12 +113,13 @@ easyclaw/
 
 `DATABASE_URL`, `REDIS_URL`, `ENCRYPTION_KEY` (32 byte base64), `APP_URL=https://easylopster.com`, `SESSION_SECRET`, `SMTP_*`, `GATEWAY_WS_URL=wss://gw.easylopster.com`, `BETA_LIMITS_*`.
 
-## 5b. Durum (24 Ekim 2026)
+## 5b. Durum (24 Ekim 2026, gece)
 
-- Faz 0, 1, 2 tamam; canlıda: https://easylopster.com (web) + wss://gw.easylopster.com (gateway, node WS + health).
-- dockxo: `web.easylopster` ve `gateway.easylopster` GitHub'dan Dockerfile ile build olur; `main`'e push otomatik deploy eder.
-- Telegram ucu gerçek bir bot token'ı ile henüz uçtan uca test edilmedi (web chat ucu test edildi: tool çağrıları, workspace dosyaları, hafıza notu, zaman dilimi çalışıyor).
-- Sıradaki: Faz 2 devamı (dashboard dosya tarayıcısı/editör, gateway internal HTTP API), Faz 3 MCP, 3b sandbox exec, 4 node ajanı + Docker imajı.
+- Faz 0-4 kodu tamam ve `main`'de; canlı: https://easylopster.com + wss://gw.easylopster.com.
+- Doğrulananlar: web chat, Telegram (gerçek bot, lokal polling modu), MCP (DeepWiki), node ajanı (Windows, fs + onaylı exec, web chat onay kartı).
+- Faz 3b sandbox exec: kod hazır, canlıda kapalı. Gateway servisine `/var/run/docker.sock` bind mount'u eklenince `SANDBOX_ENABLED=1` yapılıp test edilecek.
+- Node ajanı dağıtımı: `ghcr.io/noneym/easylopster-node` imajı ve tek dosya bundle GitHub Actions ile; `npx easylopster-node` için npm yayını henüz yok.
+- Sıradaki: dashboard dosya tarayıcısı/editör (bulut workspace), Telegram onay akışının gerçek botla testi, kullanım/limit sayfası, e-posta doğrulama (SMTP gelince).
 
 ## 6. Notlar / riskler
 
