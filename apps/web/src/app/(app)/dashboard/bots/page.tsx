@@ -42,9 +42,14 @@ export default async function BotsPage() {
                 <p className="font-medium truncate">{b.name}</p>
                 <p className="text-sm text-fg-muted truncate">{b.tgUsername ? `@${b.tgUsername}` : "not verified"} · {b.model ?? "no model"}</p>
               </div>
-              <Link href={`/dashboard/bots/${b.id}`} className="btn-secondary h-9">
-                Manage
-              </Link>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href={`/dashboard/bots/${b.id}/chat`} className="btn-primary h-9">
+                  Web chat
+                </Link>
+                <Link href={`/dashboard/bots/${b.id}`} className="btn-secondary h-9">
+                  Manage
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

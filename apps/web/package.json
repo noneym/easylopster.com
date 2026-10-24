@@ -3,6 +3,8 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-changelog.mjs",
+    "prebuild": "node scripts/sync-changelog.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

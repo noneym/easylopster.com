@@ -20,6 +20,9 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
             <a href="#nodes" className="hover:text-fg transition-colors">
               Nodes
             </a>
+            <Link href="/changelog" className="hover:text-fg transition-colors">
+              Changelog
+            </Link>
             <a
               href="https://github.com/noneym/easylopster.com"
               target="_blank"
@@ -58,6 +61,12 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
             <p className="mt-3 max-w-sm text-sm text-fg-muted leading-relaxed">
               A hosted reimagining of the OpenClaw idea: one assistant, in your chat app, with your keys and your machines.
             </p>
+            <p className="mt-4 text-sm text-fg-muted">
+              Questions, bugs, ideas:{" "}
+              <a href="mailto:hello@easylopster.com" className="font-mono text-fg hover:text-accent-ink">
+                hello@easylopster.com
+              </a>
+            </p>
           </div>
           <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm text-fg-muted">
             <a href="#how" className="hover:text-fg">
@@ -78,6 +87,12 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
             <Link href="/login" className="hover:text-fg">
               Sign in
             </Link>
+            <Link href="/changelog" className="hover:text-fg">
+              Changelog
+            </Link>
+            <a href="mailto:hello@easylopster.com" className="hover:text-fg">
+              Contact
+            </a>
           </nav>
         </div>
       </footer>

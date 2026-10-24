@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { changePassword, updateProfile, type FormState } from "./actions";
+import { TimezoneSelect } from "@/components/app/timezone-select";
 
 export function SettingsForm({ name, email, timezone }: { name: string; email: string; timezone: string }) {
   const [p, profileAction, pPending] = useActionState<FormState, FormData>(updateProfile, undefined);
@@ -29,8 +30,8 @@ export function SettingsForm({ name, email, timezone }: { name: string; email: s
           <label htmlFor="timezone" className="label">
             Time zone
           </label>
-          <input id="timezone" name="timezone" defaultValue={timezone} className="input font-mono text-sm" />
-          <p className="help">IANA name, e.g. Europe/Istanbul. Bots use it for dates and daily memory files.</p>
+          <TimezoneSelect defaultValue={timezone} />
+          <p className="help">Bots use it for dates, daily memory files and schedules.</p>
           {p?.fieldErrors?.timezone && <p className="error">{p.fieldErrors.timezone}</p>}
         </div>
         <div className="flex items-center gap-3">

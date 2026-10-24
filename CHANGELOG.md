@@ -6,6 +6,14 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Public changelog page at /changelog (rendered from CHANGELOG.md at build time), a detailed
+  "everything in the box" feature section on the landing page, contact address hello@easylopster.com.
+- Web chat button on the bots list; time zone picker (grouped IANA list) in settings.
+
+### Fixed
+- Provider logos are served locally (OpenAI's icon had disappeared from the public CDN).
+
 ## [1.1.0] - 2026-10-24
 
 ### Added

@@ -1,11 +1,22 @@
 import Link from "next/link";
 import {
+  AlarmIcon,
   BrainIcon,
+  ChatsCircleIcon,
+  CubeIcon,
   DesktopIcon,
   FolderSimpleIcon,
+  ImagesIcon,
   KeyIcon,
+  LockKeyIcon,
+  MagnifyingGlassIcon,
+  MoonStarsIcon,
   PlugsConnectedIcon,
+  ShieldCheckIcon,
+  SparkleIcon,
   TelegramLogoIcon,
+  TreeStructureIcon,
+  UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { ChatPreview } from "@/components/marketing/chat-preview";
 import { Reveal } from "@/components/marketing/reveal";
@@ -46,20 +57,14 @@ export default function HomePage() {
               { slug: "anthropic", name: "Anthropic" },
               { slug: "openai", name: "OpenAI" },
               { slug: "googlegemini", name: "Google Gemini" },
+              { slug: "deepseek", name: "DeepSeek" },
               { slug: "openrouter", name: "OpenRouter" },
               { slug: "ollama", name: "Ollama" },
               { slug: "telegram", name: "Telegram" },
             ].map((l) => (
               <li key={l.slug} className="flex items-center gap-2.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://cdn.simpleicons.org/${l.slug}/71717a`}
-                  alt={l.name}
-                  width={22}
-                  height={22}
-                  loading="lazy"
-                  className="size-[22px] opacity-80 dark:invert-[.15]"
-                />
+                <img src={`/logos/${l.slug}.svg`} alt={l.name} width={22} height={22} loading="lazy" className="size-[22px] opacity-70 dark:invert" />
                 <span className="text-sm font-medium text-fg-muted">{l.name}</span>
               </li>
             ))}
@@ -173,6 +178,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ───────────── Everything in the box: detailed feature list ───────────── */}
+      <section id="features" className="mx-auto max-w-7xl px-4 sm:px-6 py-24 md:py-32 scroll-mt-20">
+        <Reveal>
+          <p className="eyebrow mb-4">everything in the box</p>
+          <h2 className="text-3xl md:text-4xl max-w-2xl">The whole OpenClaw playbook, hosted.</h2>
+          <p className="mt-4 text-fg-muted max-w-[60ch] leading-relaxed">
+            Not a chat wrapper. The assistant has files, memory, a schedule, tools, and the judgment to ask before it does something risky.
+          </p>
+        </Reveal>
+        <dl className="mt-14 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { icon: ChatsCircleIcon, title: "Onboarding by conversation", body: "The first chat is an interview. The bot writes its own IDENTITY, SOUL and USER files and sets up tools when you ask." },
+            { icon: SparkleIcon, title: "Setup by chat", body: "\"Connect this MCP server\", \"pair my laptop\", \"store this token as GITHUB_TOKEN\", \"switch to Claude\". No forms required." },
+            { icon: BrainIcon, title: "Memory that lasts", body: "Daily notes, a curated MEMORY.md, hybrid keyword and embedding search, and recall injected into every turn." },
+            { icon: MoonStarsIcon, title: "Dreaming", body: "Once a night the bot reviews its notes, promotes durable facts and keeps a dream log you can read." },
+            { icon: AlarmIcon, title: "Automations and heartbeat", body: "Cron, interval or one-shot wakeups in the main or an isolated session. One click adds a proactive check every 30 minutes." },
+            { icon: TreeStructureIcon, title: "Intents and subagents", body: "Standing reminders that fire on matching messages, and bounded side tasks that run in their own session and report back." },
+            { icon: CubeIcon, title: "Skills", body: "Reusable SKILL.md procedures the bot reads when a task matches, writes after a non-trivial workflow, or imports from a URL." },
+            { icon: LockKeyIcon, title: "Secrets", body: "Credentials are injected as environment variables into shell commands. The model never sees the values; pasted ones are scrubbed from the transcript." },
+            { icon: MagnifyingGlassIcon, title: "Web search and fetch", body: "Brave or DuckDuckGo search plus a text extractor for any public page." },
+            { icon: ImagesIcon, title: "Media in and out", body: "Photos go to vision models, voice notes are transcribed, documents land in the inbox. Files the bot writes come back as attachments." },
+            { icon: ShieldCheckIcon, title: "Approvals and sandbox", body: "Shell commands on your machines ask for Allow / Deny in chat. An optional per-bot Linux sandbox runs the risky stuff in the cloud." },
+            { icon: UsersThreeIcon, title: "Groups done right", body: "Mention gating, unaddressed history windows, silent replies, per-group sessions, pairing codes for strangers." },
+          ].map((f, i) => (
+            <Reveal key={f.title} delay={Math.min(i, 5) * 0.04}>
+              <div className="flex gap-4">
+                <span className="mt-0.5 size-9 shrink-0 rounded-md bg-accent-soft text-accent-ink grid place-items-center">
+                  <f.icon size={18} />
+                </span>
+                <div>
+                  <dt className="font-[650] tracking-[-0.01em]">{f.title}</dt>
+                  <dd className="mt-1 text-sm text-fg-muted leading-relaxed">{f.body}</dd>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </dl>
+      </section>
+
       {/* ───────────── Nodes: split with real code ───────────── */}
       <section id="nodes" className="mx-auto max-w-7xl px-4 sm:px-6 py-24 md:py-32 grid gap-12 lg:grid-cols-2 lg:items-center scroll-mt-20">
         <Reveal>
@@ -182,7 +226,7 @@ export default function HomePage() {
             Risky commands ask for approval right in the chat.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-fg-muted">
-            <li>Windows, macOS and Linux binaries, or a Docker image with a persistent volume.</li>
+            <li>A Windows tray app, <span className="font-mono">npx easylopster-node</span> anywhere Node runs, or a Docker image with a persistent volume.</li>
             <li>Capabilities are opt-in per node: files, shell, screenshots, notifications.</li>
             <li>Revoke a node from the dashboard and it is gone instantly.</li>
           </ul>
@@ -207,7 +251,11 @@ docker run -d --name el-node \\
           <div>
             <h2 className="text-3xl md:text-4xl">Free while in beta.</h2>
             <p className="mt-3 text-fg-muted max-w-[50ch] leading-relaxed">
-              Three bots, two nodes, five MCP servers per account. Enough to run a small team's worth of assistants.
+              Three bots, two nodes, five MCP servers per account. Enough to run a small team's worth of assistants.{" "}
+              <Link href="/changelog" className="underline underline-offset-4 hover:text-fg">
+                See what shipped recently
+              </Link>
+              .
             </p>
           </div>
           <Link href="/register" className="btn-primary h-11 px-6 self-start md:self-auto">
