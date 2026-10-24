@@ -6,6 +6,9 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Workspace file browser is a real tree: folders collapse and expand (memory/ and skills/ open by default), files sit inside their folders; the filter still searches flat.
+
 ## [1.3.0] - 2026-10-24
 
 ### Added

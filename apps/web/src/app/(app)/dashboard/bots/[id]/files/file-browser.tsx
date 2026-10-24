@@ -1,11 +1,44 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { FileTextIcon, FolderIcon, PlusIcon, TrashIcon, ArrowClockwiseIcon } from "@phosphor-icons/react";
+import { FileTextIcon, FolderIcon, FolderOpenIcon, PlusIcon, TrashIcon, ArrowClockwiseIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { wsDelete, wsRead, wsTree, wsWrite, type Entry } from "./actions";
 import { SKILL_TEMPLATE } from "./skill-template";
 
-const QUICK = ["MEMORY.md", "memory/", "skills/"];
+/** Nested view of the flat entry list: folders first, then files, both sorted. */
+type TreeNode = { name: string; path: string; dir: boolean; size: number; children: TreeNode[] };
+
+function buildTree(entries: Entry[]): TreeNode[] {
+  const root: TreeNode = { name: "", path: "", dir: true, size: 0, children: [] };
+  const dirs = new Map<string, TreeNode>([["", root]]);
+  const ensureDir = (dirPath: string): TreeNode => {
+    const existing = dirs.get(dirPath);
+    if (existing) return existing;
+    const parts = dirPath.split("/");
+    const parent = ensureDir(parts.slice(0, -1).join("/"));
+    const node: TreeNode = { name: parts[parts.length - 1]!, path: dirPath, dir: true, size: 0, children: [] };
+    parent.children.push(node);
+    dirs.set(dirPath, node);
+    return node;
+  };
+  for (const e of entries) {
+    const clean = e.path.replace(/\/$/, "");
+    if (e.type === "dir") ensureDir(clean);
+    else {
+      const parts = clean.split("/");
+      const parent = ensureDir(parts.slice(0, -1).join("/"));
+      parent.children.push({ name: parts[parts.length - 1]!, path: clean, dir: false, size: e.size, children: [] });
+    }
+  }
+  const sortRec = (n: TreeNode) => {
+    n.children.sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1));
+    n.children.forEach(sortRec);
+  };
+  sortRec(root);
+  return root.children;
+}
+
+const fmtSize = (n: number) => (n < 1024 ? `${n}b` : `${Math.round(n / 1024)}k`);
 
 function todayPath() {
   return `memory/${new Date().toISOString().slice(0, 10)}.md`;
@@ -18,10 +51,26 @@ export function FileBrowser({ botId, initialEntries, initialPath }: { botId: str
   const [saved, setSaved] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  // Folders open by default: memory/, skills/ and whatever contains the open file.
+  const [openDirs, setOpenDirs] = useState<Set<string>>(() => {
+    const init = new Set(["memory", "skills"]);
+    const first = initialPath ?? "";
+    const parts = first.split("/");
+    for (let i = 1; i < parts.length; i++) init.add(parts.slice(0, i).join("/"));
+    return init;
+  });
+  const toggleDir = (d: string) =>
+    setOpenDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
   const [pending, start] = useTransition();
   const dirty = content !== saved;
 
   const files = useMemo(() => entries.filter((e) => e.type === "file" && (!filter || e.path.toLowerCase().includes(filter.toLowerCase()))).sort((a, b) => a.path.localeCompare(b.path)), [entries, filter]);
+  const tree = useMemo(() => buildTree(entries), [entries]);
 
   function refresh() {
     start(async () => {
@@ -137,27 +186,18 @@ export function FileBrowser({ botId, initialEntries, initialPath }: { botId: str
           </button>
         </div>
         <ul className="flex-1 overflow-y-auto py-2 text-sm">
-          {QUICK.map((qp) =>
-            qp.endsWith("/") ? (
-              <li key={qp} className="px-3 py-1 text-xs uppercase tracking-wide text-fg-faint mt-2 flex items-center gap-1.5">
-                <FolderIcon size={12} /> {qp}
-              </li>
-            ) : null,
-          )}
-          {files.length === 0 && <li className="px-3 py-2 text-fg-muted">No files yet. The bot creates MEMORY.md and memory notes as it works.</li>}
-          {files.map((f) => (
-            <li key={f.path}>
-              <button
-                type="button"
-                onClick={() => open(f.path)}
-                className={`w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-bg-sunk ${path === f.path ? "bg-bg-sunk font-medium" : ""}`}
-              >
-                <FileTextIcon size={14} className="shrink-0 text-fg-faint" />
-                <span className="truncate font-mono text-xs">{f.path}</span>
-                <span className="ml-auto text-[10px] text-fg-faint">{f.size < 1024 ? `${f.size}b` : `${Math.round(f.size / 1024)}k`}</span>
-              </button>
-            </li>
-          ))}
+          {entries.length === 0 && <li className="px-3 py-2 text-fg-muted">No files yet. The bot creates MEMORY.md and memory notes as it works.</li>}
+          {filter
+            ? files.map((f) => (
+                <li key={f.path}>
+                  <button type="button" onClick={() => open(f.path)} className={`w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-bg-sunk ${path === f.path ? "bg-bg-sunk font-medium" : ""}`}>
+                    <FileTextIcon size={14} className="shrink-0 text-fg-faint" />
+                    <span className="truncate font-mono text-xs">{f.path}</span>
+                    <span className="ml-auto text-[10px] text-fg-faint">{fmtSize(f.size)}</span>
+                  </button>
+                </li>
+              ))
+            : tree.map((n) => <TreeRow key={n.path} node={n} depth={0} current={path} openDirs={openDirs} onToggle={toggleDir} onOpen={open} />)}
         </ul>
       </aside>
 
@@ -190,5 +230,38 @@ export function FileBrowser({ botId, initialEntries, initialPath }: { botId: str
         )}
       </section>
     </div>
+  );
+}
+
+function TreeRow({ node, depth, current, openDirs, onToggle, onOpen }: { node: TreeNode; depth: number; current: string | null; openDirs: Set<string>; onToggle: (d: string) => void; onOpen: (p: string) => void }) {
+  const pad = { paddingLeft: `${12 + depth * 14}px` };
+  if (node.dir) {
+    const isOpen = openDirs.has(node.path);
+    return (
+      <li>
+        <button type="button" onClick={() => onToggle(node.path)} className="w-full text-left pr-3 py-1.5 flex items-center gap-1.5 hover:bg-bg-sunk text-fg-muted" style={pad} aria-expanded={isOpen}>
+          <CaretRightIcon size={10} weight="bold" className={`shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+          {isOpen ? <FolderOpenIcon size={14} className="shrink-0 text-accent-ink" /> : <FolderIcon size={14} className="shrink-0 text-accent-ink" />}
+          <span className="truncate font-mono text-xs">{node.name}/</span>
+          <span className="ml-auto text-[10px] text-fg-faint">{node.children.length}</span>
+        </button>
+        {isOpen && (
+          <ul>
+            {node.children.map((c) => (
+              <TreeRow key={c.path} node={c} depth={depth + 1} current={current} openDirs={openDirs} onToggle={onToggle} onOpen={onOpen} />
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+  return (
+    <li>
+      <button type="button" onClick={() => onOpen(node.path)} className={`w-full text-left pr-3 py-1.5 flex items-center gap-2 hover:bg-bg-sunk ${current === node.path ? "bg-bg-sunk font-medium" : ""}`} style={pad}>
+        <FileTextIcon size={14} className="shrink-0 text-fg-faint" />
+        <span className="truncate font-mono text-xs">{node.name}</span>
+        <span className="ml-auto text-[10px] text-fg-faint">{fmtSize(node.size)}</span>
+      </button>
+    </li>
   );
 }
