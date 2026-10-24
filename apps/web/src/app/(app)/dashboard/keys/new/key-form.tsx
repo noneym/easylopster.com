@@ -6,6 +6,10 @@ import { createKey, testKey, type KeyFormState } from "../actions";
 
 export function KeyForm() {
   const [provider, setProvider] = useState<ProviderId>("anthropic");
+  const [label, setLabel] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [defaultModel, setDefaultModel] = useState(PROVIDERS.anthropic.defaultModel);
   const [create, createAction, creating] = useActionState<KeyFormState, FormData>(createKey, undefined);
   const [test, testAction, testing] = useActionState<KeyFormState, FormData>(testKey, undefined);
   const info = PROVIDERS[provider];
@@ -22,7 +26,11 @@ export function KeyForm() {
           id="provider"
           name="provider"
           value={provider}
-          onChange={(e) => setProvider(e.target.value as ProviderId)}
+          onChange={(e) => {
+            const id = e.target.value as ProviderId;
+            setProvider(id);
+            setDefaultModel(PROVIDERS[id].defaultModel);
+          }}
           className="input"
         >
           {PROVIDER_IDS.map((id) => (
@@ -43,7 +51,7 @@ export function KeyForm() {
         <label htmlFor="label" className="label">
           Label
         </label>
-        <input id="label" name="label" className="input" placeholder={`${info.label} personal`} required />
+        <input id="label" name="label" value={label} onChange={(e) => setLabel(e.target.value)} className="input" placeholder={`${info.label} personal`} required />
         {fe.label && <p className="error">{fe.label}</p>}
       </div>
 
@@ -59,6 +67,8 @@ export function KeyForm() {
           spellCheck={false}
           className="input font-mono"
           placeholder={info.keyPrefix ? `${info.keyPrefix}…` : "…"}
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
           required
         />
         <p className="help">Stored encrypted. Only the last 4 characters are ever shown again.</p>
@@ -70,7 +80,7 @@ export function KeyForm() {
           <label htmlFor="baseUrl" className="label">
             Base URL {info.needsBaseUrl ? "" : "(optional)"}
           </label>
-          <input id="baseUrl" name="baseUrl" className="input font-mono text-sm" placeholder={info.defaultBaseUrl ?? "https://host/v1"} />
+          <input id="baseUrl" name="baseUrl" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="input font-mono text-sm" placeholder={info.defaultBaseUrl ?? "https://host/v1"} />
           {fe.baseUrl && <p className="error">{fe.baseUrl}</p>}
         </div>
       )}
@@ -79,7 +89,7 @@ export function KeyForm() {
         <label htmlFor="defaultModel" className="label">
           Default model
         </label>
-        <input id="defaultModel" name="defaultModel" list="model-ids" className="input font-mono text-sm" defaultValue={info.defaultModel} />
+        <input id="defaultModel" name="defaultModel" list="model-ids" className="input font-mono text-sm" value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
         <datalist id="model-ids">
           {models.map((m) => (
             <option key={m} value={m} />

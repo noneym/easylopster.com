@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { login, register, type AuthState } from "./actions";
 
@@ -8,6 +8,8 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
   const action = mode === "login" ? login : register;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, undefined);
   const fe = state?.fieldErrors ?? {};
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   return (
     <form action={formAction} className="space-y-5" noValidate>
@@ -44,7 +46,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
           <label htmlFor="name" className="label">
             Name
           </label>
-          <input id="name" name="name" type="text" autoComplete="name" required className="input" aria-invalid={!!fe.name} />
+          <input id="name" name="name" type="text" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} className="input" aria-invalid={!!fe.name} />
           {fe.name && <p className="error">{fe.name}</p>}
         </div>
       )}
@@ -52,7 +54,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next?: st
         <label htmlFor="email" className="label">
           Email
         </label>
-        <input id="email" name="email" type="email" autoComplete="email" required className="input" aria-invalid={!!fe.email} />
+        <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input" aria-invalid={!!fe.email} />
         {fe.email && <p className="error">{fe.email}</p>}
       </div>
       <div>

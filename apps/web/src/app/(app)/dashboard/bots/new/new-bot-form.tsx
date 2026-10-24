@@ -9,6 +9,9 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
   const [state, action, pending] = useActionState<BotFormState, FormData>(createBot, undefined);
   const [keyId, setKeyId] = useState(keys[0]?.id ?? "");
   const key = keys.find((k) => k.id === keyId) ?? keys[0];
+  const [name, setName] = useState("");
+  const [token, setToken] = useState("");
+  const [model, setModel] = useState(key?.defaultModel ?? "");
   const fe = state?.fieldErrors ?? {};
 
   return (
@@ -17,7 +20,7 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         <label htmlFor="name" className="label">
           Name
         </label>
-        <input id="name" name="name" className="input" placeholder="ops assistant" required />
+        <input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="ops assistant" required />
         <p className="help">Shown in your dashboard and used as the assistant's name in prompts.</p>
         {fe.name && <p className="error">{fe.name}</p>}
       </div>
@@ -25,7 +28,7 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         <label htmlFor="token" className="label">
           Bot token
         </label>
-        <input id="token" name="token" type="password" autoComplete="off" spellCheck={false} className="input font-mono" placeholder="123456789:AAH…" required />
+        <input id="token" name="token" type="password" autoComplete="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} className="input font-mono" placeholder="123456789:AAH…" required />
         <p className="help">We call getMe to verify it, then register the webhook. The token is stored encrypted.</p>
         {fe.token && <p className="error">{fe.token}</p>}
       </div>
@@ -33,7 +36,16 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         <label htmlFor="providerKeyId" className="label">
           API key
         </label>
-        <select id="providerKeyId" name="providerKeyId" value={keyId} onChange={(e) => setKeyId(e.target.value)} className="input">
+        <select
+          id="providerKeyId"
+          name="providerKeyId"
+          value={keyId}
+          onChange={(e) => {
+            setKeyId(e.target.value);
+            setModel(keys.find((k) => k.id === e.target.value)?.defaultModel ?? "");
+          }}
+          className="input"
+        >
           {keys.map((k) => (
             <option key={k.id} value={k.id}>
               {k.label}
@@ -46,7 +58,7 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         <label htmlFor="model" className="label">
           Model
         </label>
-        <input id="model" name="model" list="bot-models" className="input font-mono text-sm" defaultValue={key?.defaultModel ?? ""} key={key?.id} />
+        <input id="model" name="model" list="bot-models" className="input font-mono text-sm" value={model} onChange={(e) => setModel(e.target.value)} />
         <datalist id="bot-models">
           {key?.models.map((m) => (
             <option key={m} value={m} />
