@@ -8,7 +8,8 @@
     "./crypto": "./src/crypto.ts",
     "./providers": "./src/providers.ts",
     "./env": "./src/env.ts",
-    "./node-protocol": "./src/node-protocol.ts"
+    "./node-protocol": "./src/node-protocol.ts",
+    "./markdown": "./src/markdown.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

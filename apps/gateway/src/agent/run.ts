@@ -37,6 +37,8 @@ export interface RunOutput {
 }
 
 const MAX_STEPS = 12;
+/** Whole-run ceiling so a hung provider never pins a worker slot. */
+const RUN_TIMEOUT_MS = Number(process.env.RUN_TIMEOUT_MS ?? 180_000);
 
 export function isSilent(text: string) {
   return text.trim().toUpperCase() === "NO_REPLY";
@@ -113,6 +115,11 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   const started = Date.now();
   const abortCtrl = new AbortController();
+  let timedOut = false;
+  const runTimer = setTimeout(() => {
+    timedOut = true;
+    abortCtrl.abort();
+  }, RUN_TIMEOUT_MS);
   const abortPoll = setInterval(async () => {
     if (await redis().get(abortKey(conversation.sessionKey))) {
       await redis().del(abortKey(conversation.sessionKey));
@@ -162,13 +169,16 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     tokensIn = usage?.inputTokens ?? 0;
     tokensOut = usage?.outputTokens ?? 0;
   } catch (err) {
-    if (abortCtrl.signal.aborted) {
+    if (timedOut) {
+      error = `The model did not answer within ${Math.round(RUN_TIMEOUT_MS / 1000)} seconds (${resolved.identity}).`;
+    } else if (abortCtrl.signal.aborted) {
       error = "stopped";
     } else {
       error = err instanceof Error ? err.message : String(err);
     }
   } finally {
     clearInterval(abortPoll);
+    clearTimeout(runTimer);
   }
 
   if (error && error !== "stopped" && !text.trim()) {

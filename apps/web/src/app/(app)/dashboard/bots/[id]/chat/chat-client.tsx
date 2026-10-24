@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpIcon, WrenchIcon } from "@phosphor-icons/react";
 import { resetWebConversation, sendWebMessage } from "./actions";
+import { Markdown } from "@/components/app/markdown";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null; streaming?: boolean };
 
@@ -15,9 +16,12 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
   const [pending, start] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
   const streamId = useRef<string | null>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    esRef.current?.close();
     const es = new EventSource(`/api/chat/${conversationId}/stream`);
+    esRef.current = es;
     es.onmessage = (e) => {
       const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string };
       if (ev.type === "delta") {
@@ -34,6 +38,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
           const id = streamId.current;
           const final: Msg = { id: ev.messageId ?? `m-${Date.now()}`, role: "assistant", text: ev.text ?? "" };
           const next = id ? prev.filter((m) => m.id !== id) : prev;
+          if (next.some((m) => m.id === final.id)) return next;
           return ev.text ? [...next, final] : next;
         });
         streamId.current = null;
@@ -46,7 +51,10 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
         setBusy(false);
       }
     };
-    return () => es.close();
+    return () => {
+      es.close();
+      if (esRef.current === es) esRef.current = null;
+    };
   }, [conversationId]);
 
   useEffect(() => {
@@ -90,10 +98,10 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
                 className={
                   m.role === "user"
                     ? "max-w-[80%] rounded-lg rounded-br-sm bg-accent text-accent-fg px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap"
-                    : "max-w-[85%] rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap"
+                    : "max-w-[85%] rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2 text-sm leading-relaxed"
                 }
               >
-                {m.text}
+                {m.role === "user" ? m.text : <Markdown text={m.text} className="whitespace-pre-wrap" />}
                 {m.streaming && <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-fg-faint animate-pulse" />}
               </div>
             )}

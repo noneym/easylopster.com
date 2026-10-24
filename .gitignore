@@ -16,3 +16,6 @@ packages/node-agent/dist
 
 # gateway runtime data
 /apps/gateway/data
+
+# dev helper scripts
+packages/db/scripts/dev-*
