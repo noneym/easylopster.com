@@ -17,6 +17,12 @@ const CAP_LABELS: Record<string, string> = {
   "system.notify": "Desktop notifications",
   "screen.snapshot": "Screenshots",
   "device.info": "Machine info",
+  "browser.open": "Browser: open pages (Brave)",
+  "browser.snapshot": "Browser: read pages",
+  "browser.click": "Browser: click",
+  "browser.type": "Browser: type",
+  "browser.screenshot": "Browser: screenshots",
+  "browser.tabs": "Browser: list/close tabs",
 };
 
 export default async function NodeDetailPage({ params }: PageProps<"/dashboard/nodes/[id]">) {

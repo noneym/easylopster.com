@@ -37,13 +37,13 @@ export function NodeSettingsForm({ node, caps }: { node: { id: string; name: str
 
       <div>
         <label htmlFor="execApproval" className="label">
-          Shell commands
+          Shell commands and browser actions
         </label>
         <select id="execApproval" name="execApproval" defaultValue={node.execApproval} className="input max-w-xs">
           <option value="always">Ask me in chat before each command</option>
           <option value="never">Run without asking</option>
         </select>
-        <p className="help">With approval on, the bot shows the exact command and waits for your Allow / Deny tap (5 minutes).</p>
+        <p className="help">With approval on, the bot shows the exact command (or the page to open, element to click, text to type) and waits for your Allow / Deny tap (5 minutes). Reading pages, screenshots and tab lists never ask.</p>
       </div>
 
       <div className="flex items-center gap-3">

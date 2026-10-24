@@ -119,7 +119,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   const secrets = await loadBotSecrets(bot.id);
   const execTools = policy.exec === "sandbox" && sandboxAvailable() ? sandboxTools(bot.userId, bot.id, secrets.env) : {};
   const skills = await loadSkills(ws);
-  const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel, env: secrets.env }) : { tools: {}, summary: [] };
+  const nodeTools = input.nodes ? await nodeToolsForBot({ botId: bot.id, conversationId: conversation.id, nodes: input.nodes, channel: input.approvalChannel, env: secrets.env, workspace: ws }) : { tools: {}, summary: [] };
   const tools: ToolSet = {
     ...builtinTools({ ws, botId: bot.id, timezone, now: () => new Date() }),
     ...memoryTools(ws, bot.userId),

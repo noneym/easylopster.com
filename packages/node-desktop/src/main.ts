@@ -1,19 +1,26 @@
 /**
  * easylopster Node for Windows: tray application around the node agent library.
- * Runs the agent in-process, shows status in the tray, offers pairing, folder choice and
- * autostart. The node config file is shared with the CLI (~/.easylopster/node.json).
+ * Runs the agent in-process, shows status in the tray, offers pairing, folder choice,
+ * autostart and (opt-in) browser control of Brave. The node config file is shared with the
+ * CLI (~/.easylopster/node.json).
  */
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, shell, Notification } from "electron";
 import os from "node:os";
 import path from "node:path";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { DEFAULT_GATEWAY, VERSION, createNodeAgent, defaultConfigPath, defaultWorkspace, loadConfig, saveConfig, type AgentStatus, type NodeAgent, type NodeConfig } from "easylopster-node/agent";
+import { BROWSER_CAPS } from "@easylopster/shared/node-protocol";
+import { BrowserController, findBrave } from "./browser";
 
 const DASHBOARD_URL = "https://easylopster.com/dashboard/nodes";
 const isHidden = process.argv.includes("--hidden");
 
 interface DesktopSettings {
   autostart: boolean;
+  /** Declare browser.* capabilities and let bots drive Brave (dedicated profile). */
+  browser: boolean;
+  /** brave.exe chosen by the user when auto-detection fails. */
+  bravePath?: string;
 }
 
 let tray: Tray | null = null;
@@ -21,7 +28,8 @@ let win: BrowserWindow | null = null;
 let agent: NodeAgent | null = null;
 let quitting = false;
 let config: NodeConfig;
-let settings: DesktopSettings = { autostart: false };
+let settings: DesktopSettings = { autostart: false, browser: false };
+let browser: BrowserController | null = null;
 let status: AgentStatus = { state: "stopped", since: Date.now() };
 const logs: string[] = [];
 const configPath = defaultConfigPath();
@@ -48,6 +56,8 @@ function publicState() {
     configPath,
     logs,
     hostname: os.hostname(),
+    bravePath: findBrave(settings.bravePath) ?? null,
+    browserRunning: !!browser?.running,
   };
 }
 function pushState() {
@@ -70,6 +80,25 @@ function applyAutostart() {
   app.setLoginItemSettings({ openAtLogin: settings.autostart, args: ["--hidden"] });
 }
 
+// ───────────────────────── browser ─────────────────────────
+function getBrowser() {
+  if (!browser) {
+    browser = new BrowserController({
+      profileDir: path.join(app.getPath("userData"), "brave-profile"),
+      workspace: () => config.workspace,
+      bravePath: () => settings.bravePath,
+      log,
+    });
+  }
+  return browser;
+}
+async function closeBrowser() {
+  const b = browser;
+  browser = null;
+  if (b) await b.close().catch(() => {});
+  pushState();
+}
+
 // ───────────────────────── agent ─────────────────────────
 function buildAgent(pairingCode?: string) {
   return createNodeAgent({
@@ -77,6 +106,13 @@ function buildAgent(pairingCode?: string) {
     configPath,
     pairingCode,
     log,
+    extraCaps: settings.browser ? [...BROWSER_CAPS] : [],
+    extra: async (method, params) => {
+      if (!settings.browser) throw new Error("Browser control is turned off on this node.");
+      const r = await getBrowser().handle(method, params);
+      pushState();
+      return r;
+    },
     onStatus: (s) => {
       const was = status.state;
       status = s;
@@ -134,6 +170,8 @@ function updateTray() {
       { type: "separator" },
       config.token && status.state !== "stopped" ? { label: "Disconnect", click: () => void stopAgent() } : { label: "Connect", enabled: !!config.token, click: () => void startAgent() },
       { label: "Start with Windows", type: "checkbox", checked: settings.autostart, click: (item) => void setAutostart(item.checked) },
+      { label: "Browser control (Brave)", type: "checkbox", checked: settings.browser, click: (item) => void setBrowser(item.checked) },
+      ...(browser?.running ? [{ label: "Close controlled Brave", click: () => void closeBrowser() }] : []),
       { type: "separator" },
       { label: "Quit", click: () => quit() },
     ]),
@@ -144,6 +182,17 @@ async function setAutostart(on: boolean) {
   settings.autostart = on;
   await persistSettings();
   applyAutostart();
+  pushState();
+}
+
+/** Toggling browser control changes the declared capabilities, so the agent reconnects. */
+async function setBrowser(on: boolean) {
+  if (on === settings.browser) return;
+  settings.browser = on;
+  await persistSettings();
+  log(`browser control ${on ? "enabled" : "disabled"}${on ? ` (${findBrave(settings.bravePath) ?? "brave.exe not found"})` : ""}`);
+  if (!on) await closeBrowser();
+  if (agent && status.state !== "stopped") await startAgent();
   pushState();
 }
 
@@ -179,7 +228,7 @@ function showWindow() {
 }
 function quit() {
   quitting = true;
-  void (agent ? agent.stop() : Promise.resolve()).then(() => app.quit());
+  void Promise.all([agent ? agent.stop() : Promise.resolve(), browser ? browser.close() : Promise.resolve()]).then(() => app.quit());
 }
 
 // ───────────────────────── ipc ─────────────────────────
@@ -217,7 +266,26 @@ ipcMain.handle("workspace:choose", async () => {
   pushState();
   return publicState();
 });
-ipcMain.handle("settings:set", async (_e, patch: { name?: string; gateway?: string; autostart?: boolean }) => {
+ipcMain.handle("browser:pick", async () => {
+  const r = await dialog.showOpenDialog(win!, {
+    title: "Locate brave.exe",
+    defaultPath: findBrave(settings.bravePath),
+    properties: ["openFile"],
+    filters: [{ name: "Brave", extensions: ["exe"] }],
+  });
+  if (r.canceled || !r.filePaths[0]) return publicState();
+  settings.bravePath = r.filePaths[0];
+  await persistSettings();
+  log(`brave path set to ${settings.bravePath}`);
+  await closeBrowser();
+  pushState();
+  return publicState();
+});
+ipcMain.handle("browser:close", async () => {
+  await closeBrowser();
+  return publicState();
+});
+ipcMain.handle("settings:set", async (_e, patch: { name?: string; gateway?: string; autostart?: boolean; browser?: boolean }) => {
   let restart = false;
   if (typeof patch.name === "string" && patch.name.trim() && patch.name.trim() !== config.name) {
     config.name = patch.name.trim().slice(0, 80);
@@ -229,6 +297,10 @@ ipcMain.handle("settings:set", async (_e, patch: { name?: string; gateway?: stri
   }
   await saveConfig(configPath, config);
   if (typeof patch.autostart === "boolean") await setAutostart(patch.autostart);
+  if (typeof patch.browser === "boolean" && patch.browser !== settings.browser) {
+    await setBrowser(patch.browser);
+    restart = false; // setBrowser already reconnected
+  }
   if (restart && agent && status.state !== "stopped") await startAgent();
   pushState();
   return publicState();
