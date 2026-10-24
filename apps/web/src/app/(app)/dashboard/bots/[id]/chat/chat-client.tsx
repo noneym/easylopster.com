@@ -207,7 +207,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
           className="input h-auto min-h-10 max-h-40 py-2 resize-y"
           aria-label="Message"
         />
-        <button type="submit" disabled={busy || pending || !draft.trim()} aria-label="Send" className="btn-primary size-10 px-0 shrink-0">
+        <button type="submit" disabled={busy || pending || !draft.trim()} aria-label="Send" className="btn-primary size-10 px-0! shrink-0">
           <ArrowUpIcon size={18} weight="bold" />
         </button>
         <button type="button" onClick={reset} className="btn-ghost h-10 shrink-0 text-sm">

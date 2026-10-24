@@ -6,6 +6,13 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Icon-only buttons (theme toggle, mobile sign-out) rendered a 2px icon because the shared button
+  padding overrode `px-0`; the theme toggle is now a bordered 36px button with a bold icon.
+- Landing nav/footer section links point at the home page, so they work from /changelog.
+- Node tool names: the runtime context now spells out the exact tool prefix per node
+  (`node_<slug>_<cap>`) and says when a node is offline, so the model stops guessing names.
+
 ## [1.2.0] - 2026-10-24
 
 ### Added

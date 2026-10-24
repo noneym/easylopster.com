@@ -43,7 +43,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <div className="flex items-center gap-1">
             <ThemeToggle />
             <form action={logout}>
-              <button type="submit" aria-label="Sign out" className="btn-ghost size-9 px-0">
+              <button type="submit" aria-label="Sign out" className="btn-ghost size-9 px-0!">
                 <SignOutIcon size={18} />
               </button>
             </form>

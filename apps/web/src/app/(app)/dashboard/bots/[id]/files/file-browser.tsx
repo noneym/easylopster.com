@@ -121,7 +121,7 @@ export function FileBrowser({ botId, initialEntries, initialPath }: { botId: str
       <aside className="border-b md:border-b-0 md:border-r border-line flex flex-col min-h-0">
         <div className="p-3 flex items-center gap-2 border-b border-line">
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" className="input h-8 text-sm" aria-label="Filter files" />
-          <button type="button" onClick={refresh} className="btn-ghost size-8 px-0" aria-label="Refresh">
+          <button type="button" onClick={refresh} className="btn-ghost size-8 px-0!" aria-label="Refresh">
             <ArrowClockwiseIcon size={16} />
           </button>
         </div>
@@ -171,7 +171,7 @@ export function FileBrowser({ botId, initialEntries, initialPath }: { botId: str
               <button type="button" onClick={save} disabled={pending || !dirty} className="btn-primary h-8">
                 Save
               </button>
-              <button type="button" onClick={remove} disabled={pending} className="btn-ghost size-8 px-0" aria-label="Delete file">
+              <button type="button" onClick={remove} disabled={pending} className="btn-ghost size-8 px-0!" aria-label="Delete file">
                 <TrashIcon size={16} />
               </button>
             </div>

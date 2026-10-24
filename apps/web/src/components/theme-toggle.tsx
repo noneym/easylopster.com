@@ -1,32 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "@phosphor-icons/react";
 
+/**
+ * Light/dark switch. Both icons are rendered and CSS picks one via the .dark class, so the button
+ * is visible on the server render too (no empty placeholder until hydration).
+ */
 export function ThemeToggle({ className = "" }: { className?: string }) {
-  const [dark, setDark] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
   function toggle() {
     const next = !document.documentElement.classList.contains("dark");
     document.documentElement.classList.toggle("dark", next);
     try {
       localStorage.setItem("el-theme", next ? "dark" : "light");
     } catch {}
-    setDark(next);
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      className={`btn-ghost size-9 px-0 ${className}`}
-    >
-      {dark === null ? <span className="size-4" /> : dark ? <SunIcon size={18} weight="regular" /> : <MoonIcon size={18} weight="regular" />}
+    <button type="button" onClick={toggle} aria-label="Toggle light / dark theme" title="Light / dark theme" className={`btn-secondary size-9 px-0! text-fg ${className}`}>
+      <SunIcon size={20} weight="bold" className="hidden dark:block" aria-hidden />
+      <MoonIcon size={20} weight="bold" className="dark:hidden" aria-hidden />
     </button>
   );
 }

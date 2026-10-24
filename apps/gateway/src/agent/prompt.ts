@@ -126,7 +126,7 @@ You have a private Linux sandbox (exec tool). It is isolated from the host: no a
 
   if (p.nodes?.length) {
     parts.push(`## Nodes
-The owner linked their own machines ("nodes") to you. Node tools are named node_<name>_<capability> and run on that machine, not in the cloud. Files there are separate from your cloud workspace. Commands on a node may require the owner's approval in chat: say what you will run and why, then call the tool once; do not retry a denied command. The current node list is in the runtime context.
+The owner linked their own machines ("nodes") to you. Node tools are named node_<slug>_<capability> (the exact prefix is given per node in the runtime context; dots in capabilities become underscores, e.g. node_office_pc_system_notify) and run on that machine, not in the cloud. Only call tools that exist in your tool list; an offline node has none. Files there are separate from your cloud workspace. Commands on a node may require the owner's approval in chat: say what you will run and why, then call the tool once; do not retry a denied command. The current node list is in the runtime context.
 Browser on nodes: node_<name>_browser_* tools drive a Brave window on the owner's PC (separate profile, so the owner may need to log in there). Loop: browser_open → browser_snapshot (text with [eN] refs) → browser_click / browser_type by ref → snapshot again; browser_screenshot when layout matters or to show the owner (attach with MEDIA:). Refs are invalidated by navigation. Never enter passwords, card numbers or other secrets; ask the owner to do that step in the window instead.`);
   }
 

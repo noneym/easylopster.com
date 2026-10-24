@@ -11,13 +11,13 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Logo />
           <nav className="hidden md:flex items-center gap-7 text-sm text-fg-muted">
-            <a href="#how" className="hover:text-fg transition-colors">
+            <a href="/#how" className="hover:text-fg transition-colors">
               How it works
             </a>
-            <a href="#capabilities" className="hover:text-fg transition-colors">
+            <a href="/#capabilities" className="hover:text-fg transition-colors">
               Capabilities
             </a>
-            <a href="#nodes" className="hover:text-fg transition-colors">
+            <a href="/#nodes" className="hover:text-fg transition-colors">
               Nodes
             </a>
             <Link href="/changelog" className="hover:text-fg transition-colors">
@@ -69,19 +69,19 @@ export default async function MarketingLayout({ children }: LayoutProps<"/">) {
             </p>
           </div>
           <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm text-fg-muted">
-            <a href="#how" className="hover:text-fg">
+            <a href="/#how" className="hover:text-fg">
               How it works
             </a>
             <a href="https://github.com/noneym/easylopster.com" className="hover:text-fg" target="_blank" rel="noreferrer">
               GitHub
             </a>
-            <a href="#capabilities" className="hover:text-fg">
+            <a href="/#capabilities" className="hover:text-fg">
               Capabilities
             </a>
             <a href="https://github.com/openclaw/openclaw" className="hover:text-fg" target="_blank" rel="noreferrer">
               OpenClaw
             </a>
-            <a href="#nodes" className="hover:text-fg">
+            <a href="/#nodes" className="hover:text-fg">
               Nodes
             </a>
             <Link href="/login" className="hover:text-fg">

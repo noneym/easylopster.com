@@ -38,9 +38,11 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
     const enabled = new Set<NodeCapability>(Array.isArray(node.enabledCaps) ? (node.enabledCaps as NodeCapability[]) : []);
     const declared = new Set<NodeCapability>(Array.isArray(node.caps) ? (node.caps as NodeCapability[]) : []);
     const caps = [...enabled].filter((c) => declared.has(c));
-    summary.push(`${node.name}: ${online ? "online" : "offline"}${caps.length ? `, caps ${caps.join(", ")}` : ""}${node.workspaceRoot ? `, root ${node.workspaceRoot}` : ""}`);
-    if (!online) continue;
     const s = slug(node.name);
+    summary.push(
+      `${node.name}: ${online ? `online, tools node_${s}_<cap>` : "offline (its tools are not available until it reconnects; tell the owner to start the node app)"}${caps.length ? `, caps ${caps.join(", ")}` : ""}${node.workspaceRoot ? `, root ${node.workspaceRoot}` : ""}`,
+    );
+    if (!online) continue;
     const call = <T>(method: NodeCapability, params: Record<string, unknown>, timeoutMs?: number) => ctx.nodes.invoke<T>(node.id, method, params, timeoutMs);
     const safe = async <T>(fn: () => Promise<T>) => {
       try {
