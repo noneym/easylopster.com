@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<title>easylopster Node</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --line: #e6e3dd; --text: #161513; --muted: #6f6a63;
+    --accent: #d9573f; --accent-ink: #ffffff; --ok: #1f9d55; --warn: #c98a12; --bad: #c0392b;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111111; --panel: #1a1a1a; --line: #2a2a2a; --text: #f1efea; --muted: #9a958e; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Geist", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; -webkit-user-select: none; user-select: none;
+  }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 18px 10px; }
+  header .logo { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); flex: none; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: -0.01em; flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.online { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .pill.busy { color: var(--warn); }
+  .pill.bad { color: var(--bad); }
+  main { flex: 1; overflow: auto; padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .row .k { color: var(--muted); width: 84px; flex: none; font-size: 13px; }
+  .row .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  input[type=text] {
+    width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  input.code { font-family: var(--mono); font-size: 20px; letter-spacing: .25em; text-transform: uppercase; text-align: center; padding: 10px; }
+  button {
+    font: inherit; font-weight: 600; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.primary:hover { filter: brightness(1.05); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.sm { padding: 4px 9px; font-size: 12px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .err { color: var(--bad); font-size: 12px; margin-top: 8px; min-height: 1em; }
+  label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  #logs { font-family: var(--mono); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; height: 150px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--muted); -webkit-user-select: text; user-select: text; }
+  .hidden { display: none !important; }
+  footer { display: flex; justify-content: space-between; padding: 6px 18px 10px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"></div>
+  <h1>easylopster Node</h1>
+  <span id="pill" class="pill">Stopped</span>
+</header>
+
+<main>
+  <section id="pairCard" class="card hidden">
+    <h2>Pair this PC</h2>
+    <input id="code" class="code" type="text" maxlength="9" placeholder="PAIRING CODE" autocomplete="off" spellcheck="false">
+    <div class="actions">
+      <button id="pairBtn" class="primary">Connect</button>
+      <button id="dashBtn">Open dashboard</button>
+    </div>
+    <p class="hint">Get a code in the dashboard: <a href="#" data-open="dashboard">easylopster.com/dashboard/nodes</a>. The code is valid for one hour.</p>
+    <div id="pairErr" class="err"></div>
+  </section>
+
+  <section id="nodeCard" class="card hidden">
+    <h2>This node</h2>
+    <div class="row"><span class="k">Name</span><span class="v" id="vName"></span></div>
+    <div class="row"><span class="k">Shared folder</span><span class="v" id="vWorkspace" title=""></span></div>
+    <div class="row"><span class="k">Gateway</span><span class="v" id="vGateway"></span></div>
+    <div class="row"><span class="k">Status</span><span class="v" id="vStatus"></span></div>
+    <div class="actions">
+      <button id="toggleBtn" class="primary">Connect</button>
+      <button id="chooseBtn">Change folder…</button>
+      <button id="openBtn">Open folder</button>
+      <button id="unpairBtn" class="danger">Unpair</button>
+    </div>
+    <p class="hint">Your agent can read and write files only inside the shared folder. Shell commands run with your Windows user; approvals are set per node in the dashboard.</p>
+  </section>
+
+  <section class="card">
+    <h2>Settings</h2>
+    <div class="row"><span class="k">Name</span><input id="name" type="text" maxlength="80" placeholder="Node name"></div>
+    <label class="check"><input id="autostart" type="checkbox"> Start with Windows (hidden in the tray)</label>
+    <details>
+      <summary>Advanced</summary>
+      <div class="row"><span class="k">Gateway</span><input id="gateway" type="text" placeholder="wss://gw.easylopster.com/ws"></div>
+    </details>
+    <div class="actions"><button id="saveBtn" class="sm">Save settings</button><span id="saveMsg" class="hint" style="margin:0"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>Activity</h2>
+    <div id="logs"></div>
+    <div class="actions"><button id="logBtn" class="sm">Open log file</button><button id="cfgBtn" class="sm">Show config file</button></div>
+  </section>
+</main>
+<footer><span id="ver"></span><span id="host"></span></footer>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const api = window.lopster;
+  const LABEL = { stopped: "Stopped", connecting: "Connecting…", pairing: "Pairing…", online: "Online", offline: "Reconnecting…", auth_failed: "Pairing failed" };
+  const CLASS = { stopped: "", connecting: "busy", pairing: "busy", online: "online", offline: "busy", auth_failed: "bad" };
+  let state = null;
+  let settingsDirty = false;
+
+  function render(s) {
+    state = s;
+    const st = s.status.state;
+    $("pill").textContent = LABEL[st] ?? st;
+    $("pill").className = "pill " + (CLASS[st] ?? "");
+    $("pairCard").classList.toggle("hidden", s.paired);
+    $("nodeCard").classList.toggle("hidden", !s.paired);
+    $("vName").textContent = s.config.name;
+    $("vWorkspace").textContent = s.config.workspace;
+    $("vWorkspace").title = s.config.workspace;
+    $("vGateway").textContent = s.config.gateway;
+    $("vStatus").textContent = (LABEL[st] ?? st) + (s.status.lastError ? " — " + s.status.lastError : "");
+    const running = st !== "stopped" && st !== "auth_failed";
+    $("toggleBtn").textContent = running ? "Disconnect" : "Connect";
+    $("toggleBtn").className = running ? "" : "primary";
+    if (st === "auth_failed") { $("pairErr").textContent = s.status.lastError || "Pairing failed. Get a new code."; }
+    if (!settingsDirty) {
+      $("name").value = s.config.name;
+      $("gateway").value = s.config.gateway;
+      $("autostart").checked = !!s.settings.autostart;
+    }
+    $("ver").textContent = "v" + s.version;
+    $("host").textContent = s.hostname;
+    if (s.logs) { $("logs").textContent = s.logs.join("\n"); scrollLogs(); }
+  }
+  function scrollLogs() { const el = $("logs"); el.scrollTop = el.scrollHeight; }
+  function appendLog(line) {
+    const el = $("logs");
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    el.textContent += (el.textContent ? "\n" : "") + line;
+    const lines = el.textContent.split("\n");
+    if (lines.length > 500) el.textContent = lines.slice(-500).join("\n");
+    if (atBottom) scrollLogs();
+  }
+  async function act(fn, errEl) {
+    try { const s = await fn(); if (s) render({ ...s, logs: undefined }); if (errEl) errEl.textContent = ""; }
+    catch (e) { if (errEl) errEl.textContent = String(e.message || e).replace(/^Error invoking remote method '\w+': Error: /, ""); }
+  }
+
+  $("code").addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""); });
+  $("code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pairBtn").click(); });
+  $("pairBtn").addEventListener("click", () => act(() => api.pair($("code").value), $("pairErr")));
+  $("dashBtn").addEventListener("click", () => api.open("dashboard"));
+  document.querySelectorAll("[data-open]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); api.open(a.dataset.open); }));
+  $("toggleBtn").addEventListener("click", () => {
+    const running = state && state.status.state !== "stopped" && state.status.state !== "auth_failed";
+    act(() => (running ? api.stop() : api.start()));
+  });
+  $("chooseBtn").addEventListener("click", () => act(() => api.chooseWorkspace()));
+  $("openBtn").addEventListener("click", () => api.open("folder"));
+  $("unpairBtn").addEventListener("click", () => { if (confirm("Unpair this PC? You will need a new pairing code to connect again.")) act(() => api.unpair()); });
+  for (const id of ["name", "gateway", "autostart"]) $(id).addEventListener("input", () => { settingsDirty = true; $("saveMsg").textContent = ""; });
+  $("saveBtn").addEventListener("click", async () => {
+    settingsDirty = false;
+    await act(() => api.setSettings({ name: $("name").value, gateway: $("gateway").value, autostart: $("autostart").checked }));
+    $("saveMsg").textContent = "Saved";
+  });
+  $("logBtn").addEventListener("click", () => api.open("logs"));
+  $("cfgBtn").addEventListener("click", () => api.open("config"));
+
+  api.onState((s) => render({ ...s, logs: undefined }));
+  api.onLog(appendLog);
+  api.getState().then(render);
+</script>
+</body>
+</html>

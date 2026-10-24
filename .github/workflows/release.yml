@@ -61,3 +61,19 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/easylopster-node:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/easylopster-node:latest
+
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @easylopster/node-desktop dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: easylopster ${{ github.ref_name }}
+          files: packages/node-desktop/release/*.exe

@@ -19,3 +19,5 @@ packages/node-agent/dist
 
 # dev helper scripts
 packages/db/scripts/dev-*
+packages/node-desktop/dist
+packages/node-desktop/release

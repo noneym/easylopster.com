@@ -28,7 +28,8 @@
       "msgpackr-extract",
       "prisma",
       "unrs-resolver",
-      "sharp"
+      "sharp",
+      "electron"
     ]
   },
   "version": "1.0.0"

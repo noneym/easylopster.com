@@ -8,6 +8,11 @@ All notable changes to easylopster are documented here. The format follows
 
 ### Added
 - Cloudflare Email Service as the mail transport (`MAIL_MAILER=cloudflare`), with SMTP still available; styled verification email.
+- Windows tray app `easylopster Node` (`packages/node-desktop`, Electron): pair with a code, pick the shared
+  folder, see status and activity, start with Windows, native notifications; NSIS installer attached to
+  GitHub Releases by the release workflow.
+- Node agent split into a library (`easylopster-node/agent`: `createNodeAgent` with status/log/notify hooks)
+  and the thin CLI.
 
 ## [1.0.0] - 2026-10-24
 

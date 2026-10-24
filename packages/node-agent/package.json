@@ -23,5 +23,8 @@
     "tsdown": "^0.23.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
+  },
+  "exports": {
+    "./agent": "./src/agent.ts"
   }
 }

@@ -49,7 +49,17 @@ export default async function NodeDetailPage({ params }: PageProps<"/dashboard/n
           <p className="mt-1 text-xs text-fg-muted">Valid until {node.pairingExpiresAt!.toISOString().replace("T", " ").slice(0, 16)} UTC. Use it once; the agent then stores its own token.</p>
           <div className="mt-5 space-y-4 text-sm">
             <div>
-              <p className="font-medium">On your machine (Windows, macOS, Linux; needs Node 22+)</p>
+              <p className="font-medium">Windows: install easylopster Node (tray app)</p>
+              <p className="mt-1 text-fg-muted">
+                Download <code>easylopster-node-setup-*.exe</code> from{" "}
+                <a className="underline" href="https://github.com/noneym/easylopster.com/releases/latest" target="_blank" rel="noreferrer">
+                  GitHub Releases
+                </a>
+                , open it, paste the code above and pick the folder to share. It keeps running in the tray and can start with Windows.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Any machine with Node 22+ (Windows, macOS, Linux)</p>
               <pre className="mt-1 card p-3 overflow-x-auto font-mono text-xs leading-relaxed">{`npx easylopster-node connect ${node.pairingCode} --gateway ${gw} --workspace ~/easylopster`}</pre>
             </div>
             <div>

@@ -50,7 +50,7 @@
 
 - **web**: SSR sayfalar, auth, CRUD, Telegram webhook alıcı (doğrular + kuyruğa atar, hemen 200), web chat SSE.
 - **gateway**: kuyruktan iş alır → oturum + sistem promptu + geçmiş + tool tanımları (built-in, MCP, node) → AI SDK `streamText` tool-loop → Telegram'a yazar (düzenlenen mesajla streaming). Node WS sunucusu burada.
-- **packages/db**: Prisma şeması + client. **packages/shared**: zod, şifreleme, provider registry. **packages/node-agent**: node CLI.
+- **packages/db**: Prisma şeması + client. **packages/shared**: zod, şifreleme, provider registry. **packages/node-agent**: node ajanı (kütüphane + CLI). **packages/node-desktop**: Windows tray uygulaması (Electron, NSIS kurulum).
 
 ### Veri modeli (Prisma)
 
@@ -68,7 +68,7 @@
 |---|---|---|---|
 | **1. Bulut workspace** | Gateway volume: `/data/workspaces/{userId}/{botId}/` — `SOUL.md`, `USER.md`, `MEMORY.md`, `memory/YYYY-MM-DD.md`, `skills/*/SKILL.md`, yüklenen dosyalar | Her zaman, Faz 2'den itibaren | `fs.read/write/list/search`, path klasöre kilitli; dashboardda dosya tarayıcı + editör; Telegram'dan gelen dosyalar buraya düşer |
 | **2. Sandbox exec** | Gateway'in Docker API ile açtığı kısa ömürlü container (workspace mount, ağ kısıtlı, CPU/RAM limit, root yok, boşta kapanır) | Faz 3b | `exec`; stdio MCP sunucuları da bu container içinde çalışır |
-| **3. Node / self-host** | Kullanıcının makinesi: `easylopster-node` CLI (Windows exe) **veya** `docker run -e EASYLOPSTER_TOKEN=... -v data:/workspace ghcr.io/noneym/easylopster-node` | Faz 4 | `fs.*`, `exec`, `screen.snapshot`, `notify`; bot workspace'i "node X, klasör Y" olarak seçilebilir |
+| **3. Node / self-host** | Kullanıcının makinesi: `easylopster-node` CLI veya Windows tray uygulaması (`easylopster Node`, Electron) **veya** `docker run -e EASYLOPSTER_TOKEN=... -v data:/workspace ghcr.io/noneym/easylopster-node` | Faz 4 | `fs.*`, `exec`, `screen.snapshot`, `notify`; bot workspace'i "node X, klasör Y" olarak seçilebilir |
 
 Tool router her çağrıda "bu tool nerede çalışacak" kararını botun ayarına göre verir (bulut → sandbox → node). Katman 3'ün Docker imajı aynı repodan GitHub Actions ile `ghcr.io/noneym/easylopster-node` olarak yayınlanır.
 
