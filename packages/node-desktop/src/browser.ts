@@ -171,6 +171,32 @@ const LOCATE_SCRIPT = (target: string) => `(() => {
   return { x: r.left + Math.min(r.width / 2, 200), y: r.top + Math.min(r.height / 2, 100), tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || "").slice(0, 80) };
 })()`;
 
+/** Sets a field's value through the native setter so React/Vue style inputs notice. */
+const TYPE_FALLBACK_SCRIPT = (target: string, text: string, clear: boolean) => `(() => {
+  const t = ${JSON.stringify(target)};
+  let el = document.querySelector('[data-lopster-ref="' + t + '"]'); if (!el) { try { el = document.querySelector(t); } catch {} }
+  if (!el) return false;
+  el.focus();
+  if ("value" in el) {
+    const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    const next = (${clear} ? "" : el.value) + ${JSON.stringify(text)};
+    if (setter) setter.call(el, next); else el.value = next;
+  } else if (el.isContentEditable) { if (${clear}) el.textContent = ""; el.textContent += ${JSON.stringify(text)}; }
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+})()`;
+
+/** Submits the enclosing form when the Enter key did not navigate. */
+const SUBMIT_FALLBACK_SCRIPT = (target: string) => `(() => {
+  const t = ${JSON.stringify(target)};
+  let el = document.querySelector('[data-lopster-ref="' + t + '"]'); if (!el) { try { el = document.querySelector(t); } catch {} }
+  const form = el && el.form;
+  if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); return true; }
+  return false;
+})()`;
+
 export class BrowserController {
   private child: ChildProcess | null = null;
   private ws: WebSocket | null = null;
@@ -383,6 +409,8 @@ export class BrowserController {
     this.bySession.set(sessionId, t);
     await this.send("Page.enable", {}, sessionId);
     await this.send("Runtime.enable", {}, sessionId);
+    // The Brave window is usually behind other windows; make the page behave as focused so key input lands.
+    await this.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId).catch(() => {});
     return sessionId;
   }
 
@@ -496,11 +524,20 @@ export class BrowserController {
       await this.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Delete", code: "Delete", windowsVirtualKeyCode: 46 }, sid);
       await this.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Delete", code: "Delete", windowsVirtualKeyCode: 46 }, sid);
     }
-    if (text) await this.send("Input.insertText", { text }, sid);
+    if (text) {
+      await this.send("Input.insertText", { text }, sid);
+      // Fallback when the synthetic input was ignored (unfocused window, custom widgets): set the value from JS.
+      const landed = await this.evaluate<boolean>(sid, `(() => { const el = document.activeElement; const v = el && ("value" in el ? el.value : el.textContent); return typeof v === "string" && v.includes(${JSON.stringify(text)}); })()`).catch(() => false);
+      if (!landed) await this.evaluate(sid, TYPE_FALLBACK_SCRIPT(target, text, o.clear));
+    }
     if (o.enter) {
+      const before = await this.pageInfo(sid);
       await sleep(80);
       await this.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r", unmodifiedText: "\r" }, sid);
       await this.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 }, sid);
+      await sleep(400);
+      const after = await this.pageInfo(sid).catch(() => before);
+      if (after.url === before.url && !t.loading) await this.evaluate(sid, SUBMIT_FALLBACK_SCRIPT(target)).catch(() => {});
       await this.waitForLoad(t, 8000);
     } else await sleep(150);
     const info = await this.pageInfo(sid);
