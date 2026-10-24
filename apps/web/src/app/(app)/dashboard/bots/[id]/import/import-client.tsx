@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderOpenIcon, CheckCircleIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { CATEGORY_LABELS, classify, normalizeRelPath, type ImportCategory, type ImportEntry, type SkippedEntry } from "@/lib/openclaw-import";
+import { BATCH_BYTES, BATCH_FILES, CATEGORY_LABELS, MAX_FILES, classify, normalizeRelPath, type ImportCategory, type ImportEntry, type SkippedEntry } from "@/lib/openclaw-import";
 
 type Picked = { file: File; entry: ImportEntry };
 const ORDER: ImportCategory[] = ["persona", "memory", "heartbeat", "skills", "other"];
@@ -21,6 +21,7 @@ export function ImportClient({ botId, hasMemory }: { botId: string; hasMemory: b
   const [heartbeatAutomation, setHeartbeatAutomation] = useState(true);
   const [showSkipped, setShowSkipped] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{ ok?: boolean; error?: string; written?: { path: string }[]; skipped?: { path: string; reason: string }[]; heartbeat?: string } | null>(null);
 
   useEffect(() => {
@@ -62,18 +63,49 @@ export function ImportClient({ botId, hasMemory }: { botId: string; hasMemory: b
     if (!selected.length) return;
     setBusy(true);
     setResult(null);
-    const fd = new FormData();
-    fd.set("botId", botId);
-    fd.set("options", JSON.stringify({ categories: [...categories], memoryMode, heartbeatAutomation: heartbeatAutomation && hasHeartbeat }));
-    for (const x of selected) fd.append("file", new File([x.file], x.entry.path, { type: "text/plain" }));
+    // Sequential batches keep every request small (no proxy upload limits, no giant form bodies).
+    const batches: Picked[][] = [];
+    let cur: Picked[] = [];
+    let curBytes = 0;
+    for (const x of selected) {
+      if (cur.length >= BATCH_FILES || (curBytes + x.file.size > BATCH_BYTES && cur.length)) {
+        batches.push(cur);
+        cur = [];
+        curBytes = 0;
+      }
+      cur.push(x);
+      curBytes += x.file.size;
+    }
+    if (cur.length) batches.push(cur);
+    const written: { path: string }[] = [];
+    const skippedAll: { path: string; reason: string }[] = [];
+    let heartbeat: string | undefined;
     try {
-      const r = await fetch("/api/import/openclaw", { method: "POST", body: fd });
-      const j = (await r.json()) as typeof result;
-      setResult(r.ok ? j : { error: j?.error ?? `HTTP ${r.status}`, ...j });
+      for (let i = 0; i < batches.length; i++) {
+        setProgress({ done: i, total: batches.length });
+        const fd = new FormData();
+        fd.set("botId", botId);
+        fd.set(
+          "options",
+          JSON.stringify({ categories: [...categories], memoryMode, heartbeatAutomation: heartbeatAutomation && hasHeartbeat, batch: { index: i, total: batches.length, totalFiles: selected.length } }),
+        );
+        for (const x of batches[i]!) fd.append("file", new File([x.file], x.entry.path, { type: "text/plain" }));
+        const r = await fetch("/api/import/openclaw", { method: "POST", body: fd });
+        const j = (await r.json()) as NonNullable<typeof result>;
+        written.push(...(j?.written ?? []));
+        skippedAll.push(...(j?.skipped ?? []));
+        if (j?.heartbeat && j.heartbeat !== "skipped") heartbeat = j.heartbeat;
+        if (!r.ok) {
+          setResult({ error: `${j?.error ?? `HTTP ${r.status}`} (batch ${i + 1} of ${batches.length}; ${written.length} files were already written)`, written, skipped: skippedAll });
+          return;
+        }
+      }
+      setResult({ ok: true, written, skipped: skippedAll, heartbeat: heartbeat ?? "skipped" });
     } catch (err) {
-      setResult({ error: err instanceof Error ? err.message : String(err) });
+      setResult({ error: err instanceof Error ? err.message : String(err), written, skipped: skippedAll });
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -236,9 +268,10 @@ export function ImportClient({ botId, hasMemory }: { botId: string; hasMemory: b
           )}
 
           <div className="border-t border-line pt-4 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={run} disabled={busy || !selected.length} className="btn-primary">
-              {busy ? "Importing…" : `Import ${selected.length} files (${fmt(selectedBytes)})`}
+            <button type="button" onClick={run} disabled={busy || !selected.length || selected.length > MAX_FILES} className="btn-primary">
+              {busy ? (progress && progress.total > 1 ? `Importing… ${progress.done + 1}/${progress.total}` : "Importing…") : `Import ${selected.length} files (${fmt(selectedBytes)})`}
             </button>
+            {selected.length > MAX_FILES && <span className="text-xs text-accent-ink">At most {MAX_FILES} files per import; deselect a category or some files.</span>}
             <span className="text-xs text-fg-muted">Persona files overwrite the current ones. BOOTSTRAP.md is removed, so the bot skips the first-run interview.</span>
           </div>
           {result?.error && (

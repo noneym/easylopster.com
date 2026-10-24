@@ -15,6 +15,8 @@ interface Options {
   categories: ImportCategory[];
   memoryMode: "append" | "replace";
   heartbeatAutomation: boolean;
+  /** Large imports arrive in sequential batches; the summary note is written with the last one. */
+  batch: { index: number; total: number; totalFiles: number };
 }
 
 const HEARTBEAT_IMPORT_PROMPT =
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
       categories: Array.isArray(raw.categories) ? (raw.categories as ImportCategory[]) : ["persona", "memory", "heartbeat", "skills", "other"],
       memoryMode: raw.memoryMode === "replace" ? "replace" : "append",
       heartbeatAutomation: !!raw.heartbeatAutomation,
+      batch: raw.batch && typeof raw.batch === "object" ? { index: Number(raw.batch.index ?? 0), total: Number(raw.batch.total ?? 1), totalFiles: Number(raw.batch.totalFiles ?? 0) } : { index: 0, total: 1, totalFiles: 0 },
     };
   } catch {
     return Response.json({ error: "Bad options" }, { status: 400 });
@@ -48,7 +51,7 @@ export async function POST(req: Request) {
 
   const files = form.getAll("file").filter((f): f is File => f instanceof File);
   if (!files.length) return Response.json({ error: "No files" }, { status: 400 });
-  if (files.length > MAX_FILES) return Response.json({ error: `At most ${MAX_FILES} files per import` }, { status: 400 });
+  if (files.length > MAX_FILES || options.batch.totalFiles > MAX_FILES) return Response.json({ error: `At most ${MAX_FILES} files per import` }, { status: 400 });
   let total = 0;
   for (const f of files) total += f.size;
   if (total > MAX_TOTAL_BYTES) return Response.json({ error: `Import larger than ${MAX_TOTAL_BYTES / 1024 / 1024} MB` }, { status: 400 });
@@ -97,6 +100,7 @@ export async function POST(req: Request) {
         continue;
       }
       const text = buf.toString("utf8");
+      // Only the first batch may replace MEMORY.md; later batches never carry it twice anyway.
       if (path === "MEMORY.md" && options.memoryMode === "append") {
         const existing = (await read("MEMORY.md"))?.trim();
         const merged = existing ? `${existing}\n\n## Imported from OpenClaw (${new Date().toISOString().slice(0, 10)})\n\n${text.trim()}\n` : text;
@@ -130,14 +134,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // Onboarding is done by the import; leave a trace in today's memory note.
-    if (written.length) {
+    // Onboarding is done by the import; leave a trace in today's memory note (once, with the last batch).
+    const last = options.batch.index >= options.batch.total - 1;
+    if (written.length && last) {
       await gatewayFetch(`${base}/file${q("BOOTSTRAP.md")}`, { method: "DELETE", timeoutMs: 10_000 }).catch(() => null);
       const tz = bot.user.timezone || "UTC";
       const day = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
       const rel = `memory/${day}.md`;
       const existing = await read(rel);
-      const line = `- Imported ${written.length} file${written.length === 1 ? "" : "s"} from an OpenClaw workspace (${[...new Set(written.map((w) => w.category))].join(", ")}).`;
+      const count = Math.max(options.batch.totalFiles, written.length);
+      const line = `- Imported ${count} file${count === 1 ? "" : "s"} from an OpenClaw workspace.`;
       await put(rel, `${existing ? existing.replace(/\s+$/, "") + "\n" : `# ${day}\n\n`}${line}\n`);
     }
 

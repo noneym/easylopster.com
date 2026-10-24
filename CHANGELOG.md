@@ -12,7 +12,7 @@ All notable changes to easylopster are documented here. The format follows
   and large files are skipped before upload), choose append or replace for MEMORY.md, optionally
   create a "Proactive check" automation that follows HEARTBEAT.md. Persona files are mirrored into
   settings and BOOTSTRAP.md is removed so the imported bot skips the first-run interview. TOOLS.md
-  is now loaded as workspace context like AGENTS.md and IDENTITY.md.
+  is now loaded as workspace context like AGENTS.md and IDENTITY.md. Large imports go up in batches of 120 files (up to 2000 files / 50 MB).
 - "Test this model" next to the model picker (bot settings and API key page): one tiny prompt
   through the gateway shows the latency and reply, or the provider's error / a 25 s timeout, so
   broken models on a provider are caught before a bot is pointed at them.

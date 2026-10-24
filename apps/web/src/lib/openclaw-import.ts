@@ -18,8 +18,12 @@ export interface SkippedEntry {
 }
 
 export const MAX_FILE_BYTES = 512 * 1024;
-export const MAX_TOTAL_BYTES = 25 * 1024 * 1024;
-export const MAX_FILES = 400;
+export const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+/** Hard cap for one import (all batches together). */
+export const MAX_FILES = 2000;
+/** Files per request; the picker splits a large import into sequential batches. */
+export const BATCH_FILES = 120;
+export const BATCH_BYTES = 8 * 1024 * 1024;
 
 const PERSONA = new Set(["SOUL.md", "USER.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md"]);
 const SKIP_DIRS = /^(\.git|\.trash[^/]*|\.openclaw|\.clawhub|node_modules|\.venv|venv|__pycache__|\.cache|dist|build)(\/|$)/;
