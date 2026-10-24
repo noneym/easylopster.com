@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from "@easylopster/shared/providers";
 import { createKey, testKey, type KeyFormState } from "../actions";
+import { ModelSelect } from "@/components/app/model-select";
 
 export function KeyForm() {
   const [provider, setProvider] = useState<ProviderId>("anthropic");
@@ -89,13 +90,8 @@ export function KeyForm() {
         <label htmlFor="defaultModel" className="label">
           Default model
         </label>
-        <input id="defaultModel" name="defaultModel" list="model-ids" className="input font-mono text-sm" value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
-        <datalist id="model-ids">
-          {models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
-        <p className="help">Bots can override this. Test the key to load the provider's model list.</p>
+        <ModelSelect id="defaultModel" name="defaultModel" models={models} value={defaultModel} onChange={setDefaultModel} />
+        <p className="help">{test?.models?.length ? `${test.models.length} models loaded from the provider.` : "Test the key to load the provider's model list."} Bots can override this.</p>
         {fe.defaultModel && <p className="error">{fe.defaultModel}</p>}
       </div>
 

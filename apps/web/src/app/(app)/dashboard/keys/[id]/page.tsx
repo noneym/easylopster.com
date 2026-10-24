@@ -30,7 +30,7 @@ export default async function KeyDetailPage({ params }: PageProps<"/dashboard/ke
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px] max-w-5xl">
-        <KeyEditForm id={key.id} label={key.label} defaultModel={key.defaultModel} models={info?.models.map((m) => m.id) ?? []} />
+        <KeyEditForm id={key.id} label={key.label} defaultModel={key.defaultModel} models={(Array.isArray(key.modelsCache) ? (key.modelsCache as string[]) : null) ?? info?.models.map((m) => m.id) ?? []} />
 
         <aside className="space-y-4">
           <div className="card p-5">

@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateKey, type KeyFormState } from "../actions";
+import { ModelSelect } from "@/components/app/model-select";
 
 export function KeyEditForm({ id, label, defaultModel, models }: { id: string; label: string; defaultModel: string; models: string[] }) {
   const [state, action, pending] = useActionState<KeyFormState, FormData>(updateKey, undefined);
+  const [model, setModel] = useState(defaultModel);
   return (
     <form action={action} className="card p-6 space-y-5" noValidate>
       <input type="hidden" name="id" value={id} />
@@ -19,12 +21,8 @@ export function KeyEditForm({ id, label, defaultModel, models }: { id: string; l
         <label htmlFor="defaultModel" className="label">
           Default model
         </label>
-        <input id="defaultModel" name="defaultModel" list="edit-model-ids" defaultValue={defaultModel} className="input font-mono text-sm" required />
-        <datalist id="edit-model-ids">
-          {models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
+        <ModelSelect id="defaultModel" name="defaultModel" models={models} value={model} onChange={setModel} required />
+        <p className="help">{models.length} models known for this key. "Test again" refreshes the list.</p>
         {state?.fieldErrors?.defaultModel && <p className="error">{state.fieldErrors.defaultModel}</p>}
       </div>
       <div className="flex items-center gap-3">

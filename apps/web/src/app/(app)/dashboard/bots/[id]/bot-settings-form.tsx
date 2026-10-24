@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateBot, type BotFormState } from "../actions";
+import { ModelSelect } from "@/components/app/model-select";
 
 type KeyOpt = { id: string; label: string; defaultModel: string; models: string[] };
 type BotValues = {
@@ -36,6 +37,7 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
   const [state, action, pending] = useActionState<BotFormState, FormData>(updateBot, undefined);
   const [keyId, setKeyId] = useState(bot.providerKeyId || keys[0]?.id || "");
   const key = keys.find((k) => k.id === keyId);
+  const [model, setModel] = useState(bot.model || key?.defaultModel || "");
   const fe = state?.fieldErrors ?? {};
 
   return (
@@ -52,7 +54,16 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
             <input id="agentName" name="agentName" defaultValue={bot.agentName} className="input" />
           </Field>
           <Field label="API key" htmlFor="providerKeyId" error={fe.providerKeyId}>
-            <select id="providerKeyId" name="providerKeyId" value={keyId} onChange={(e) => setKeyId(e.target.value)} className="input">
+            <select
+              id="providerKeyId"
+              name="providerKeyId"
+              value={keyId}
+              onChange={(e) => {
+                setKeyId(e.target.value);
+                setModel(keys.find((k) => k.id === e.target.value)?.defaultModel ?? "");
+              }}
+              className="input"
+            >
               {keys.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.label}
@@ -61,12 +72,7 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
             </select>
           </Field>
           <Field label="Model" htmlFor="model" error={fe.model}>
-            <input id="model" name="model" list="bot-model-ids" defaultValue={bot.model || key?.defaultModel || ""} className="input font-mono text-sm" required />
-            <datalist id="bot-model-ids">
-              {key?.models.map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
+            <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} required />
           </Field>
           <Field label="Thinking" htmlFor="thinking" help="Extended reasoning where the model supports it.">
             <select id="thinking" name="thinking" defaultValue={bot.thinking} className="input">

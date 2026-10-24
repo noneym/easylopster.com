@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createBot, type BotFormState } from "../actions";
+import { ModelSelect } from "@/components/app/model-select";
 
 type KeyOpt = { id: string; label: string; defaultModel: string; models: string[] };
 
@@ -58,13 +59,8 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         <label htmlFor="model" className="label">
           Model
         </label>
-        <input id="model" name="model" list="bot-models" className="input font-mono text-sm" value={model} onChange={(e) => setModel(e.target.value)} />
-        <datalist id="bot-models">
-          {key?.models.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
-        <p className="help">Leave as is to use the key's default model.</p>
+        <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} />
+        <p className="help">Defaults to the key's default model.</p>
       </div>
 
       {state?.error && (

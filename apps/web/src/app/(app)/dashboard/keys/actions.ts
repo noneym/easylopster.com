@@ -64,6 +64,7 @@ export async function createKey(_prev: KeyFormState, formData: FormData): Promis
       lastTestedAt: new Date(),
       lastTestOk: true,
       lastTestMsg: test.message,
+      modelsCache: test.models?.length ? test.models.slice(0, 500) : undefined,
     },
   });
   revalidatePath("/dashboard/keys");
@@ -77,7 +78,12 @@ export async function retestKey(id: string) {
   const r = await testProviderKey(row.provider as never, decrypt(row.encKey), row.baseUrl);
   await db.providerKey.update({
     where: { id },
-    data: { lastTestedAt: new Date(), lastTestOk: r.ok, lastTestMsg: r.message.slice(0, 500) },
+    data: {
+      lastTestedAt: new Date(),
+      lastTestOk: r.ok,
+      lastTestMsg: r.message.slice(0, 500),
+      ...(r.ok && r.models?.length ? { modelsCache: r.models.slice(0, 500) } : {}),
+    },
   });
   revalidatePath(`/dashboard/keys/${id}`);
 }

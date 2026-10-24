@@ -72,6 +72,8 @@ model ProviderKey {
   lastTestedAt DateTime?
   lastTestOk   Boolean?
   lastTestMsg  String?   @db.VarChar(512)
+  /// Model ids reported by the provider on the last successful test
+  modelsCache  Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

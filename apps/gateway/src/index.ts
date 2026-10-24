@@ -6,6 +6,7 @@ import { env } from "./env.ts";
 import { createRedis, redis } from "./redis.ts";
 import { attachNodeServer } from "./nodes/server.ts";
 import { handleInbound, type InboundJob } from "./agent/inbound.ts";
+import { startTelegramPolling } from "./telegram/polling.ts";
 
 const log = (msg: string, extra?: unknown) =>
   console.log(`[gateway] ${new Date().toISOString()} ${msg}`, extra ?? "");
@@ -57,8 +58,12 @@ async function main() {
 
   server.listen(e.GATEWAY_PORT, "0.0.0.0", () => log(`listening on :${e.GATEWAY_PORT} (ws: ${e.GATEWAY_WS_URL})`));
 
+  // Dev only: pull Telegram updates when there is no public webhook URL.
+  const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};
+
   const shutdown = async (sig: string) => {
     log(`${sig} received, shutting down`);
+    stopPolling();
     await worker.close();
     nodeServer.close();
     server.close();

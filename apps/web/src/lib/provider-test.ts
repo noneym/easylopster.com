@@ -59,7 +59,10 @@ export async function testProviderKey(provider: ProviderId, apiKey: string, base
       }
       case "openrouter": {
         const r = await get("https://openrouter.ai/api/v1/auth/key", { Authorization: `Bearer ${apiKey}` });
-        if (r.status === 200) return { ok: true, message: "Key accepted by OpenRouter." };
+        if (r.status === 200) {
+          const list = await get("https://openrouter.ai/api/v1/models", {}).catch(() => null);
+          return { ok: true, message: "Key accepted by OpenRouter.", models: list ? idsFrom(list.body, "data") : undefined };
+        }
         if (r.status === 401) return { ok: false, message: "OpenRouter rejected the key (401)." };
         return { ok: false, message: `OpenRouter answered ${r.status}.` };
       }

@@ -22,6 +22,11 @@ function webhookUrl(botId: string, secret: string) {
   return `${base}/api/tg/${botId}/${secret}`;
 }
 
+/** Telegram only accepts public HTTPS webhooks; in local dev the gateway polls instead (TELEGRAM_POLLING=1). */
+function webhooksEnabled() {
+  return /^https:\/\//.test(process.env.APP_URL ?? "") && !/localhost|127\.0\.0\.1/.test(process.env.APP_URL ?? "");
+}
+
 export async function createBot(_prev: BotFormState, formData: FormData): Promise<BotFormState> {
   const user = await requireUser();
   const count = await db.bot.count({ where: { userId: user.id } });
@@ -62,12 +67,12 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
     },
   });
 
-  const hook = await tg.setWebhook(token, webhookUrl(bot.id, secret), secret);
+  const hook = webhooksEnabled() ? await tg.setWebhook(token, webhookUrl(bot.id, secret), secret) : ({ ok: true } as const);
   await tg.setMyCommands(token, BOT_COMMANDS);
   await db.bot.update({
     where: { id: bot.id },
     data: hook.ok
-      ? { webhookSetAt: new Date(), lastError: null, lastErrorAt: null }
+      ? { webhookSetAt: webhooksEnabled() ? new Date() : null, lastError: null, lastErrorAt: null }
       : { lastError: `setWebhook failed: ${hook.description}`.slice(0, 1000), lastErrorAt: new Date(), status: "error" },
   });
 
@@ -187,7 +192,7 @@ export async function resetWebhook(id: string) {
   const bot = await db.bot.findFirst({ where: { id, userId: user.id } });
   if (!bot) return;
   const token = decrypt(bot.encToken);
-  const hook = await tg.setWebhook(token, webhookUrl(bot.id, bot.webhookSecret), bot.webhookSecret);
+  const hook = webhooksEnabled() ? await tg.setWebhook(token, webhookUrl(bot.id, bot.webhookSecret), bot.webhookSecret) : ({ ok: true } as const);
   await tg.setMyCommands(token, BOT_COMMANDS);
   await db.bot.update({
     where: { id },

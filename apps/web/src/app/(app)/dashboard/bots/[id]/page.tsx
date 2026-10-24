@@ -114,7 +114,7 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
               id: k.id,
               label: `${k.label} (${PROVIDERS[k.provider as ProviderId]?.label ?? k.provider})`,
               defaultModel: k.defaultModel,
-              models: PROVIDERS[k.provider as ProviderId]?.models.map((m) => m.id) ?? [],
+              models: (Array.isArray(k.modelsCache) ? (k.modelsCache as string[]) : null) ?? PROVIDERS[k.provider as ProviderId]?.models.map((m) => m.id) ?? [],
             }))}
           />
 
