@@ -4,37 +4,30 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-c
 RUN npm i -g pnpm@10
 WORKDIR /app
 
-FROM base AS deps
+# ---------- build (bundles gateway + workspace packages into dist/) ----------
+FROM base AS build
+COPY . .
+RUN pnpm install --frozen-lockfile \
+ && pnpm --filter @easylopster/db generate \
+ && pnpm --filter @easylopster/gateway build
+
+# ---------- production deps only ----------
+FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY apps/gateway/package.json apps/gateway/
 COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/node-agent/package.json packages/node-agent/
-RUN pnpm install --frozen-lockfile
-
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN pnpm --filter @easylopster/db generate \
- && pnpm --filter @easylopster/gateway build
-
-# Production deps only (gateway + its workspace deps' runtime packages)
-FROM base AS prod-deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY apps/gateway/package.json apps/gateway/
-COPY packages/db/package.json packages/db/
-COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --prod --filter @easylopster/gateway...
 
+# ---------- runtime ----------
 FROM node:22-bookworm-slim
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production GATEWAY_PORT=4000 WORKSPACE_ROOT=/data/workspaces
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/gateway/dist ./dist
-# Generated Prisma client (query compiler wasm + schema) must sit next to the bundled code
-COPY --from=build /app/packages/db/generated ./packages/db/generated
 RUN mkdir -p /data/workspaces && chown -R node:node /app /data
 USER node
 EXPOSE 4000

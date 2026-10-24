@@ -4,22 +4,13 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-c
 RUN npm i -g pnpm@10
 WORKDIR /app
 
-# ---------- deps ----------
-FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY apps/web/package.json apps/web/
-COPY apps/gateway/package.json apps/gateway/
-COPY packages/db/package.json packages/db/
-COPY packages/shared/package.json packages/shared/
-COPY packages/node-agent/package.json packages/node-agent/
-RUN pnpm install --frozen-lockfile
-
 # ---------- build ----------
 FROM base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm --filter @easylopster/db generate \
+# Workspace packages are linked into each app's own node_modules, so install after the full copy.
+RUN pnpm install --frozen-lockfile \
+ && pnpm --filter @easylopster/db generate \
  && pnpm --filter @easylopster/web build
 
 # ---------- runtime ----------
