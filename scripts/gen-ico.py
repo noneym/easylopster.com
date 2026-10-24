@@ -5,9 +5,11 @@ from PIL import Image
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def ico(frames, out):
-    imgs = [Image.open(f).convert("RGBA") for f in frames]
+    # Largest frame first: PIL drops any requested size bigger than the base image, and
+    # electron-builder rejects an .ico whose biggest frame is under 256px.
+    imgs = sorted((Image.open(f).convert("RGBA") for f in frames), key=lambda im: -im.size[0])
     imgs[0].save(out, format="ICO", sizes=[im.size for im in imgs], append_images=imgs[1:])
-    print("wrote", out)
+    print("wrote", out, [im.size[0] for im in imgs])
 
 web = os.path.join(root, "apps", "web")
 ico([os.path.join(web, "public", "brand", f"favicon-{s}.png") for s in (16, 32, 48)], os.path.join(web, "src", "app", "favicon.ico"))
