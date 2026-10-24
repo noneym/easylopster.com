@@ -1,6 +1,6 @@
 {
   "name": "easylopster-node",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "easylopster node agent: connects your machine (or a Docker container) to your easylopster.com account.",
   "type": "module",

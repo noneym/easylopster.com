@@ -6,6 +6,8 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-24
+
 ### Added
 - Public changelog page at /changelog (rendered from CHANGELOG.md at build time), a detailed
   "everything in the box" feature section on the landing page, contact address hello@easylopster.com.
@@ -13,6 +15,8 @@ All notable changes to easylopster are documented here. The format follows
 
 ### Fixed
 - Provider logos are served locally (OpenAI's icon had disappeared from the public CDN).
+- Windows installer build: the generated .ico now carries a 256px frame (the 1.1.0 release had no
+  installer because electron-builder rejected the icon).
 
 ## [1.1.0] - 2026-10-24
 
@@ -113,6 +117,7 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/noneym/easylopster.com/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/noneym/easylopster.com/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/noneym/easylopster.com/releases/tag/v1.0.0
