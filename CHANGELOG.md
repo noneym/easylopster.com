@@ -6,6 +6,17 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Browser control on Windows nodes: easylopster Node (tray app) gets a "Browser control (Brave)"
+  toggle. When on, the node declares `browser.open / snapshot / click / type / screenshot / tabs`
+  and drives a separate Brave window (its own profile under the app's data folder, the user's
+  normal Brave profile is untouched) over the Chrome DevTools protocol. Bots get
+  `node_<name>_browser_*` tools: text snapshots with element refs, clicks and typing by ref or
+  selector, PNG screenshots the model sees and can attach with `MEDIA:` (copied into the bot's
+  cloud workspace `inbox/`). Open / click / type go through the same chat approval as shell
+  commands when the node is set to "ask"; snapshot, screenshot and tabs are free. brave.exe is
+  auto-detected or can be located in the app's settings.
+
 ### Fixed
 - Dashboard forms no longer reset after saving (React 19 action reset), which snapped the model
   picker back to the first entry and made the next save submit the wrong model.

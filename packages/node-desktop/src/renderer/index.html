@@ -99,6 +99,9 @@
     <h2>Settings</h2>
     <div class="row"><span class="k">Name</span><input id="name" type="text" maxlength="80" placeholder="Node name"></div>
     <label class="check"><input id="autostart" type="checkbox"> Start with Windows (hidden in the tray)</label>
+    <label class="check"><input id="browser" type="checkbox"> Browser control (Brave)</label>
+    <p class="hint" style="margin-top:4px">Lets your bots open pages, read them, click, type and take screenshots in a separate Brave window with its own profile (your own tabs, logins and history are not shared). Turn the browser capabilities on per node in the dashboard; opening pages, clicks and typing can require your approval in chat.</p>
+    <div class="row"><span class="k">Brave</span><span class="v" id="vBrave" title=""></span><button id="braveBtn" class="sm">Locate…</button><button id="braveCloseBtn" class="sm hidden">Close</button></div>
     <details>
       <summary>Advanced</summary>
       <div class="row"><span class="k">Gateway</span><input id="gateway" type="text" placeholder="wss://gw.easylopster.com/ws"></div>
@@ -142,7 +145,11 @@
       $("name").value = s.config.name;
       $("gateway").value = s.config.gateway;
       $("autostart").checked = !!s.settings.autostart;
+      $("browser").checked = !!s.settings.browser;
     }
+    $("vBrave").textContent = s.bravePath ? s.bravePath + (s.browserRunning ? " — running" : "") : "brave.exe not found — install Brave or locate it";
+    $("vBrave").title = s.bravePath || "";
+    $("braveCloseBtn").classList.toggle("hidden", !s.browserRunning);
     $("ver").textContent = "v" + s.version;
     $("host").textContent = s.hostname;
     if (s.logs) { $("logs").textContent = s.logs.join("\n"); scrollLogs(); }
@@ -174,6 +181,9 @@
   $("openBtn").addEventListener("click", () => api.open("folder"));
   $("unpairBtn").addEventListener("click", () => { if (confirm("Unpair this PC? You will need a new pairing code to connect again.")) act(() => api.unpair()); });
   for (const id of ["name", "gateway", "autostart"]) $(id).addEventListener("input", () => { settingsDirty = true; $("saveMsg").textContent = ""; });
+  $("browser").addEventListener("change", () => act(() => api.setSettings({ browser: $("browser").checked })));
+  $("braveBtn").addEventListener("click", () => act(() => api.pickBrave()));
+  $("braveCloseBtn").addEventListener("click", () => act(() => api.closeBrowser()));
   $("saveBtn").addEventListener("click", async () => {
     settingsDirty = false;
     await act(() => api.setSettings({ name: $("name").value, gateway: $("gateway").value, autostart: $("autostart").checked }));
