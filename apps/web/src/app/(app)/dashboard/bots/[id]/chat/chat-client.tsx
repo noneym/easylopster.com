@@ -5,7 +5,7 @@ import { ArrowUpIcon, WrenchIcon } from "@phosphor-icons/react";
 import { resetWebConversation, sendWebMessage } from "./actions";
 import { Markdown } from "@/components/app/markdown";
 
-type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null; streaming?: boolean };
+type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
 
 export function ChatClient({ botId, conversationId: initialConv, initial }: { botId: string; conversationId: string; initial: Msg[] }) {
   const [conversationId, setConversationId] = useState(initialConv);
@@ -13,9 +13,9 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [tool, setTool] = useState<string | null>(null);
+  const [streamText, setStreamText] = useState("");
   const [pending, start] = useTransition();
   const bottom = useRef<HTMLDivElement>(null);
-  const streamId = useRef<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -25,28 +25,18 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
     es.onmessage = (e) => {
       const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string };
       if (ev.type === "delta") {
-        setMessages((prev) => {
-          const id = streamId.current ?? `stream-${Date.now()}`;
-          streamId.current = id;
-          const exists = prev.some((m) => m.id === id);
-          return exists ? prev.map((m) => (m.id === id ? { ...m, text: ev.text ?? "" } : m)) : [...prev, { id, role: "assistant", text: ev.text ?? "", streaming: true }];
-        });
+        setStreamText(ev.text ?? "");
       } else if (ev.type === "tool") {
         setTool(ev.status === "start" ? ev.name ?? "tool" : null);
       } else if (ev.type === "final") {
-        setMessages((prev) => {
-          const id = streamId.current;
-          const final: Msg = { id: ev.messageId ?? `m-${Date.now()}`, role: "assistant", text: ev.text ?? "" };
-          const next = id ? prev.filter((m) => m.id !== id) : prev;
-          if (next.some((m) => m.id === final.id)) return next;
-          return ev.text ? [...next, final] : next;
-        });
-        streamId.current = null;
+        const final: Msg = { id: ev.messageId ?? `m-${Date.now()}`, role: "assistant", text: ev.text ?? "" };
+        setMessages((prev) => (prev.some((m) => m.id === final.id) || !ev.text ? prev : [...prev, final]));
+        setStreamText("");
         setTool(null);
         setBusy(false);
       } else if (ev.type === "error") {
         setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: "", error: ev.message }]);
-        streamId.current = null;
+        setStreamText("");
         setTool(null);
         setBusy(false);
       }
@@ -59,7 +49,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages, tool]);
+  }, [messages, tool, streamText]);
 
   function submit() {
     const text = draft.trim();
@@ -102,11 +92,18 @@ export function ChatClient({ botId, conversationId: initialConv, initial }: { bo
                 }
               >
                 {m.role === "user" ? m.text : <Markdown text={m.text} className="whitespace-pre-wrap" />}
-                {m.streaming && <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-fg-faint animate-pulse" />}
               </div>
             )}
           </div>
         ))}
+        {streamText && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2 text-sm leading-relaxed">
+              <Markdown text={streamText} className="whitespace-pre-wrap" />
+              <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-fg-faint animate-pulse" />
+            </div>
+          </div>
+        )}
         {tool && (
           <p className="inline-flex items-center gap-2 text-xs text-fg-muted font-mono">
             <WrenchIcon size={12} /> {tool}
