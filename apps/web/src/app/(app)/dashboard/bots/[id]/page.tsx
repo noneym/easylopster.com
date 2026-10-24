@@ -7,22 +7,25 @@ import { db } from "@/lib/db";
 import { decidePairing, deleteBot, removeAllowlistEntry, resetWebhook, setBotStatus } from "../actions";
 import { BotSettingsForm } from "./bot-settings-form";
 import { AllowlistForm } from "./allowlist-form";
+import { BotMcpForm } from "./bot-mcp-form";
 
 export const metadata = { title: "Bot" };
 
 export default async function BotDetailPage({ params }: PageProps<"/dashboard/bots/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const [bot, keys] = await Promise.all([
+  const [bot, keys, mcpServers] = await Promise.all([
     db.bot.findFirst({
       where: { id, userId: user.id },
       include: {
         allowlist: { orderBy: { createdAt: "asc" } },
+        mcps: true,
         pairings: { where: { status: "pending", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } },
         _count: { select: { conversations: true } },
       },
     }),
     db.providerKey.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
+    db.mcpServer.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
   ]);
   if (!bot) notFound();
 
@@ -141,6 +144,17 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
             )}
             <AllowlistForm botId={bot.id} />
           </section>
+
+          <BotMcpForm
+            botId={bot.id}
+            servers={mcpServers.map((s) => ({
+              id: s.id,
+              name: s.name,
+              status: s.status,
+              tools: Array.isArray(s.toolsCache) ? (s.toolsCache as { name: string; description?: string }[]) : [],
+            }))}
+            links={bot.mcps.map((m) => ({ mcpServerId: m.mcpServerId, allowedTools: Array.isArray(m.allowedTools) ? (m.allowedTools as string[]) : null }))}
+          />
         </div>
 
         <aside className="space-y-4">

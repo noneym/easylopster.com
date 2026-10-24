@@ -9,6 +9,7 @@ import { loadHistory, maybeCompact, saveMessage, SUMMARIZE_INSTRUCTIONS } from "
 import { recordUsage } from "./usage.ts";
 import { redis } from "../redis.ts";
 import { abortKey } from "./pubsub.ts";
+import { mcpToolsForBot } from "./mcp.ts";
 
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
@@ -82,7 +83,9 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     }
   }
 
-  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...(input.extraTools ?? {}) };
+  const mcp = await mcpToolsForBot(bot.id);
+  const tools: ToolSet = { ...builtinTools({ ws, timezone, now: () => new Date() }), ...mcp.tools, ...(input.extraTools ?? {}) };
+  console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tools=${Object.keys(tools).join(",")}${mcp.errors.length ? ` mcpErrors=${JSON.stringify(mcp.errors)}` : ""}`);
 
   const system = buildSystemPrompt({
     agentName: bot.agentName || bot.name,
@@ -93,13 +96,14 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     workspaceDir: "/workspace",
     bootstrap,
     toolNames: Object.keys(tools),
+    mcpInstructions: mcp.instructions,
     timezone,
   });
 
   const history = await loadHistory(conversation);
   const messages: ModelMessage[] = [
     ...history,
-    { role: "user", content: buildRuntimeContext({ now, timezone }) },
+    { role: "user", content: buildRuntimeContext({ now, timezone, extra: mcp.errors.length ? ["## MCP", ...mcp.errors.map((e) => `Unavailable this turn: ${e}`)] : undefined }) },
     { role: "assistant", content: "Noted." },
     { role: "user", content: input.userText },
   ];
@@ -129,6 +133,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   let text = "";
   let toolCalls = 0;
+  const toolStarted = new Map<string, number>();
   let tokensIn = 0;
   let tokensOut = 0;
   let error: string | undefined;
@@ -155,11 +160,17 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
           break;
         case "tool-call":
           toolCalls++;
+          toolStarted.set(p.toolName ?? "tool", Date.now());
           input.onTool?.(p.toolName ?? "tool", "start");
           break;
-        case "tool-result":
-          input.onTool?.(p.toolName ?? "tool", "end");
+        case "tool-result": {
+          const name = p.toolName ?? "tool";
+          const ms = Date.now() - (toolStarted.get(name) ?? Date.now());
+          const out = JSON.stringify((p as { output?: unknown }).output ?? "").slice(0, 160);
+          console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tool=${name} ${ms}ms -> ${out}`);
+          input.onTool?.(name, "end");
           break;
+        }
         case "error":
           error = p.error instanceof Error ? p.error.message : String(p.error);
           break;
