@@ -1,14 +1,16 @@
+import { db } from "@easylopster/db";
 import type { NodeServer } from "../nodes/server.ts";
+import { handleTelegramUpdate } from "../telegram/inbound.ts";
+import { runAgent } from "./run.ts";
+import { getOrCreateConversation } from "./session.ts";
+import { checkQuota } from "./usage.ts";
+import { publishChat } from "./pubsub.ts";
 
-/**
- * Job payload enqueued by the web app (Telegram webhook / web chat).
- * Faz 2 implements the agent loop; Faz 0 only logs.
- */
+/** Job payload enqueued by the web app (Telegram webhook / web chat). Must match apps/web/src/lib/queue.ts. */
 export interface InboundJob {
   botId: string;
   source: "telegram" | "web";
   sessionKey: string;
-  /** Raw Telegram update (source=telegram) or { text, userId } (source=web). */
   payload: unknown;
   receivedAt: string;
 }
@@ -18,5 +20,40 @@ export interface InboundContext {
 }
 
 export async function handleInbound(job: InboundJob, _ctx: InboundContext): Promise<void> {
-  console.log(`[gateway] inbound bot=${job.botId} source=${job.source} session=${job.sessionKey}`);
+  const bot = await db.bot.findUnique({ where: { id: job.botId }, include: { providerKey: true, user: { select: { id: true, timezone: true } } } });
+  if (!bot || bot.status !== "active") return;
+
+  if (job.source === "telegram") {
+    await handleTelegramUpdate(bot, job.payload as never, job.sessionKey);
+    return;
+  }
+
+  // ── Web chat ──
+  const { text, conversationId } = job.payload as { text: string; conversationId: string };
+  const conversation = await db.conversation.findUnique({ where: { id: conversationId } });
+  if (!conversation || conversation.botId !== bot.id) return;
+  const quota = await checkQuota(bot.userId);
+  if (!quota.ok) {
+    await publishChat(conversation.id, { type: "error", message: `Daily beta limit reached (${quota.limit} messages).` });
+    return;
+  }
+  try {
+    const out = await runAgent({
+      bot,
+      conversation,
+      channel: "web",
+      chatType: "direct",
+      userText: text,
+      storedText: text,
+      senderName: "owner",
+      onDelta: (t) => void publishChat(conversation.id, { type: "delta", text: t }),
+      onTool: (name, status) => void publishChat(conversation.id, { type: "tool", name, status }),
+    });
+    await publishChat(conversation.id, { type: "final", text: out.text, messageId: out.messageId });
+  } catch (err) {
+    await publishChat(conversation.id, { type: "error", message: err instanceof Error ? err.message : String(err) });
+  }
 }
+
+// Re-exported for the HTTP admin surface (web chat conversation bootstrap).
+export { getOrCreateConversation };
