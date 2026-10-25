@@ -7,6 +7,10 @@ All notable changes to easylopster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Telegram streaming modes "Block" and "Progress" now do what their labels say: Block sends each
+  completed paragraph as its own message while the reply is still being written (code fences are
+  never split); Progress shows one silent status message (thinking / running <tool> / writing…)
+  and replaces it with the final answer as a fresh, notifying message. Partial and Off are unchanged.
 - MCP catalog on the MCP servers page: Cloudflare (API, Docs, Browser Rendering), GitHub, Context7,
   DeepWiki, Hugging Face, Exa, Tavily, Firecrawl, Stripe, Zapier and Composio (the last two are the
   route to Gmail, Google Calendar, Drive, Sheets and thousands of other apps). "Use" opens the add

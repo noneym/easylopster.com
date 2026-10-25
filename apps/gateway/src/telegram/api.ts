@@ -64,6 +64,108 @@ export class TelegramSender {
   }
 
   /**
+   * "block" streaming: every paragraph that is complete (a blank line follows it, outside code
+   * fences) is sent as its own message while the model is still writing; finish() sends whatever
+   * paragraphs of the final text were not sent yet. Nothing is edited, nothing is deleted.
+   */
+  blockStream(chatId: string | number, opts: { threadId?: number; replyTo?: number } = {}) {
+    const self = this;
+    let sentParagraphs = 0;
+    let inflight: Promise<void> = Promise.resolve();
+    let stopped = false;
+    const sendPara = (p: string, first: boolean) => {
+      inflight = inflight.then(async () => {
+        await self.sendMarkdown(chatId, p, { threadId: opts.threadId, replyTo: first ? opts.replyTo : undefined }).catch(() => {});
+      });
+      return inflight;
+    };
+    return {
+      update(text: string) {
+        if (stopped) return;
+        const done = completedParagraphs(text);
+        for (let i = sentParagraphs; i < done.length; i++) {
+          void sendPara(done[i]!, i === 0);
+          sentParagraphs = i + 1;
+        }
+      },
+      async finish(finalMarkdown: string): Promise<number[]> {
+        stopped = true;
+        await inflight;
+        const all = paragraphsOf(finalMarkdown);
+        const rest = all.slice(sentParagraphs).join("\n\n").trim();
+        if (!rest) return [];
+        return self.sendMarkdown(chatId, rest, { threadId: opts.threadId, replyTo: sentParagraphs === 0 ? opts.replyTo : undefined });
+      },
+      async discard() {
+        stopped = true;
+        await inflight;
+      },
+    };
+  }
+
+  /**
+   * "progress" streaming: one status message shows what the bot is doing (thinking, running a
+   * tool, writing); on finish it is deleted and the final answer arrives as a fresh message, so the
+   * owner gets exactly one notification with the complete reply.
+   */
+  progressStream(chatId: string | number, opts: { threadId?: number; replyTo?: number } = {}) {
+    const self = this;
+    let messageId: number | null = null;
+    let lastSent = "";
+    let pending = "";
+    let timer: NodeJS.Timeout | null = null;
+    let inflight: Promise<void> = Promise.resolve();
+    let stopped = false;
+    const flush = async () => {
+      timer = null;
+      const text = pending;
+      if (stopped || !text || text === lastSent) return;
+      inflight = inflight.then(async () => {
+        try {
+          if (messageId == null) {
+            const m = await self.api.sendMessage(chatId, text, { message_thread_id: opts.threadId && opts.threadId !== 1 ? opts.threadId : undefined, disable_notification: true });
+            messageId = m.message_id;
+          } else await self.api.editMessageText(chatId, messageId, text);
+          lastSent = text;
+        } catch (err) {
+          if (!(err instanceof GrammyError && /message is not modified/i.test(err.description))) messageId = messageId ?? null;
+        }
+      });
+      await inflight;
+    };
+    const set = (text: string) => {
+      if (stopped) return;
+      pending = text.slice(0, 300);
+      if (!timer) timer = setTimeout(() => void flush(), messageId == null ? 0 : 1500);
+    };
+    return {
+      thinking() {
+        set("⏳ Thinking…");
+      },
+      tool(name: string) {
+        set(`🔧 Running ${name}…`);
+      },
+      writing(text: string) {
+        const t = text.replace(/\s+/g, " ").trim();
+        set(t ? `✍️ ${t.slice(0, 120)}${t.length > 120 ? "…" : ""}` : "✍️ Writing…");
+      },
+      async finish(finalMarkdown: string): Promise<number[]> {
+        stopped = true;
+        if (timer) clearTimeout(timer);
+        await inflight;
+        if (messageId != null) await self.api.deleteMessage(chatId, messageId).catch(() => {});
+        return self.sendMarkdown(chatId, finalMarkdown, opts);
+      },
+      async discard() {
+        stopped = true;
+        if (timer) clearTimeout(timer);
+        await inflight;
+        if (messageId != null) await self.api.deleteMessage(chatId, messageId).catch(() => {});
+      },
+    };
+  }
+
+  /**
    * Streaming draft (OpenClaw "partial" mode): first send after ≥30 chars, then at most one edit
    * per second with the latest text; final text edits in place (chunk 1) and sends the remainder.
    */
@@ -157,4 +259,31 @@ export class TelegramSender {
       },
     };
   }
+}
+
+
+/** Paragraphs of a Markdown text: split on blank lines that are not inside a ``` fence. */
+export function paragraphsOf(text: string): string[] {
+  const out: string[] = [];
+  let cur: string[] = [];
+  let inFence = false;
+  for (const line of text.split("\n")) {
+    if (/^\s*```/.test(line)) inFence = !inFence;
+    if (!inFence && line.trim() === "") {
+      if (cur.length) out.push(cur.join("\n").trim());
+      cur = [];
+    } else cur.push(line);
+  }
+  if (cur.length) out.push(cur.join("\n").trim());
+  return out.filter(Boolean);
+}
+
+/** Paragraphs that are definitely complete while text is still streaming (a blank line follows them, outside fences). */
+export function completedParagraphs(text: string): string[] {
+  const all = paragraphsOf(text);
+  if (!all.length) return [];
+  // The last paragraph is complete only if the text ends with a blank line outside a fence.
+  const fences = (text.match(/^\s*```/gm) ?? []).length;
+  const endsWithBlank = /\n\s*\n\s*$/.test(text) && fences % 2 === 0;
+  return endsWithBlank ? all : all.slice(0, -1);
 }

@@ -399,7 +399,12 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
 
   const stopTyping = tg.typing(m.chat.id, m.message_thread_id);
   const replyTo = bot.replyToMode === "off" ? undefined : m.message_id;
-  const draft = bot.streaming === "partial" ? tg.draft(m.chat.id, { threadId: m.message_thread_id, replyTo }) : null;
+  const streamOpts = { threadId: m.message_thread_id, replyTo };
+  const draft = bot.streaming === "partial" ? tg.draft(m.chat.id, streamOpts) : null;
+  const block = bot.streaming === "block" ? tg.blockStream(m.chat.id, streamOpts) : null;
+  const progress = bot.streaming === "progress" ? tg.progressStream(m.chat.id, streamOpts) : null;
+  progress?.thinking();
+  const live = draft ?? block ?? progress;
 
   try {
     const out = await runAgent({
@@ -415,21 +420,22 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
       nodes,
       approvalChannel: { kind: "telegram", sender: tg, chatId: m.chat.id, threadId: m.message_thread_id },
       images: media.images,
-      onDelta: draft ? (t) => draft.update(t) : undefined,
+      onDelta: draft ? (t) => draft.update(t) : block ? (t) => block.update(t) : progress ? (t) => progress.writing(t) : undefined,
+      onTool: progress ? (name, status) => (status === "start" ? progress.tool(name) : progress.thinking()) : undefined,
     });
     stopTyping();
     if (out.silent || (!out.text && out.media.length === 0)) {
-      await draft?.discard();
+      await live?.discard();
       return;
     }
     if (out.text) {
-      if (draft) await draft.finish(out.text);
+      if (live) await live.finish(out.text);
       else await tg.sendMarkdown(m.chat.id, out.text, { threadId: m.message_thread_id, replyTo });
-    } else await draft?.discard();
+    } else await live?.discard();
     if (out.media.length) await sendMedia(tg.api, m.chat.id, ws, out.media, m.message_thread_id);
   } catch (err) {
     stopTyping();
-    await draft?.discard();
+    await live?.discard();
     const msg = err instanceof Error ? err.message : String(err);
     log(`run failed bot=${bot.id}: ${msg}`);
     await db.bot.update({ where: { id: bot.id }, data: { lastError: msg.slice(0, 1000), lastErrorAt: new Date() } }).catch(() => {});
