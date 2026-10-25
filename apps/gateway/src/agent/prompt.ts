@@ -112,7 +112,7 @@ Citations: include Source: <path#line> when it helps the user verify memory snip
 
   if (p.secretNames?.length) {
     parts.push(`## Secrets
-Available as environment variables in exec (sandbox or nodes): ${p.secretNames.map((n) => "$" + n).join(", ")}. You never see their values; do not ask the user to paste them. Missing one: secrets(action="request").`);
+Available as environment variables in exec (sandbox or nodes): ${p.secretNames.map((n) => "$" + n).join(", ")}. You never see their values; do not ask the user to paste them. Missing one: secrets(action="request").${p.secretNames.includes("NAMESILO_API_KEY") ? "\nNAMESILO_API_KEY also powers the namesilo tool (domains, DNS, email forwarding at NameSilo); use it instead of raw HTTP." : ""}`);
   }
 
   if (p.mcpInstructions?.length) {

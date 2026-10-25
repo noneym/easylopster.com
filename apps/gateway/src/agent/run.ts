@@ -19,6 +19,7 @@ import { loadSkills, skillsCatalog, skillTools } from "./skills.ts";
 import { memoryFlush, memoryRecall, memoryTools } from "./memory.ts";
 import { loadBotSecrets, secretsTools } from "./secrets.ts";
 import { secretsSetupTools, setupTools } from "./setup-tools.ts";
+import { namesiloTools } from "./namesilo.ts";
 import { automationsTools } from "./automations.ts";
 import { firedIntents, intentTools } from "./intents.ts";
 import { subagentTools, SUBAGENT_TASK_LABEL } from "./subagent.ts";
@@ -140,6 +141,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     ...automationsTools(bot.id, timezone),
     ...intentTools(bot.id, conversation.id),
     ...webSearchTools(),
+    ...(secrets.env.NAMESILO_API_KEY ? namesiloTools(secrets.env.NAMESILO_API_KEY) : {}),
     ...(depth === 0
       ? subagentTools(async (req) => {
           const sub = await getOrCreateConversation(bot.id, `sub:${bot.id}:${Date.now().toString(36)}`, "web", { title: `Subagent: ${req.label ?? req.task.slice(0, 40)}` });

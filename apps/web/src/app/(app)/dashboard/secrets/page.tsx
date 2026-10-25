@@ -6,7 +6,9 @@ import { SecretForm } from "./secret-form";
 
 export const metadata = { title: "Secrets" };
 
-export default async function SecretsPage() {
+export default async function SecretsPage({ searchParams }: PageProps<"/dashboard/secrets">) {
+  const sp = await searchParams;
+  const initialName = typeof sp.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(sp.name) ? sp.name : "";
   const user = await requireUser();
   const secrets = await db.secret.findMany({ where: { userId: user.id }, orderBy: { name: "asc" }, include: { bots: { include: { bot: { select: { name: true } } } } } });
 
@@ -41,7 +43,7 @@ export default async function SecretsPage() {
             </ul>
           )}
         </section>
-        <SecretForm />
+        <SecretForm initialName={initialName} />
       </div>
     </>
   );

@@ -11,6 +11,10 @@ All notable changes to easylopster are documented here. The format follows
   DeepWiki, Hugging Face, Exa, Tavily, Firecrawl, Stripe, Zapier and Composio (the last two are the
   route to Gmail, Google Calendar, Drive, Sheets and thousands of other apps). "Use" opens the add
   form prefilled with the URL, transport and header template plus where to get the credential.
+- NameSilo bridge: mcp.namesilo.com speaks plain JSON-RPC rather than MCP, so a built-in `namesilo`
+  tool (domains, DNS, name servers, email forwarding, balance; 80+ methods from the server's
+  manifest) appears for bots that have the Secret NAMESILO_API_KEY; the catalog card links to the
+  Secrets page with the name prefilled.
 
 ### Changed
 - Workspace file browser is a real tree: folders collapse and expand (memory/ and skills/ open by default), files sit inside their folders; the filter still searches flat.

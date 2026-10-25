@@ -3,7 +3,7 @@
  * (API key / token) are listed; OAuth-only servers (Notion, Linear, Sentry, ...) need an
  * interactive sign-in flow we do not run yet. URLs and auth come from each vendor's docs.
  */
-export type McpCatalogGroup = "cloudflare" | "dev" | "search" | "business" | "hub";
+export type McpCatalogGroup = "cloudflare" | "dev" | "search" | "business" | "hub" | "builtin";
 
 export interface McpCatalogEntry {
   id: string;
@@ -19,6 +19,8 @@ export interface McpCatalogEntry {
   /** One line telling the user where to get the credential. */
   auth: string;
   docs: string;
+  /** Built-in bridge instead of an MCP connection: the user adds this Secret and enables it for the bot. */
+  secretName?: string;
 }
 
 export const MCP_CATALOG_GROUPS: Record<McpCatalogGroup, string> = {
@@ -27,6 +29,7 @@ export const MCP_CATALOG_GROUPS: Record<McpCatalogGroup, string> = {
   search: "Web search and scraping",
   business: "Business",
   hub: "Integration hubs (Google services and 9,000+ apps)",
+  builtin: "Built-in bridges (configured with a Secret)",
 };
 
 export const MCP_CATALOG: McpCatalogEntry[] = [
@@ -183,6 +186,19 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     docs: "https://docs.composio.dev/docs/mcp-overview",
   },
 ];
+
+MCP_CATALOG.push({
+  id: "namesilo",
+  name: "NameSilo",
+  vendor: "NameSilo",
+  group: "builtin",
+  description: "Domains, DNS records, name servers, email forwarding and account balance at NameSilo. Its mcp.namesilo.com endpoint speaks plain JSON-RPC rather than MCP, so easylopster bridges it with a built-in tool.",
+  transport: "streamable-http",
+  url: "https://mcp.namesilo.com/rpc",
+  auth: "NameSilo → account → API Manager → generate an API key. Save it as a Secret named NAMESILO_API_KEY and enable it for the bot; the `namesilo` tool appears on the next message.",
+  docs: "https://www.namesilo.com/api-reference",
+  secretName: "NAMESILO_API_KEY",
+});
 
 export function mcpCatalogEntry(id: string): McpCatalogEntry | undefined {
   return MCP_CATALOG.find((e) => e.id === id);

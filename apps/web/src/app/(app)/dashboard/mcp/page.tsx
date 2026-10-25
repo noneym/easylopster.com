@@ -71,10 +71,16 @@ export default async function McpPage() {
                       <p className="text-xs text-fg-faint">{e.vendor}</p>
                     </div>
                     <p className="text-sm text-fg-muted leading-relaxed flex-1">{e.description}</p>
-                    <p className="text-xs text-fg-faint">{e.headers || e.url.includes("<") ? "Needs a credential" : "No credentials"}</p>
-                    <Link href={`/dashboard/mcp/new?preset=${e.id}`} className="btn-secondary h-8 text-sm self-start">
-                      Use
-                    </Link>
+                    <p className="text-xs text-fg-faint">{e.secretName ? `Secret ${e.secretName}` : e.headers || e.url.includes("<") ? "Needs a credential" : "No credentials"}</p>
+                    {e.secretName ? (
+                      <Link href={`/dashboard/secrets?name=${e.secretName}`} className="btn-secondary h-8 text-sm self-start" title={e.auth}>
+                        Set up with a Secret
+                      </Link>
+                    ) : (
+                      <Link href={`/dashboard/mcp/new?preset=${e.id}`} className="btn-secondary h-8 text-sm self-start">
+                        Use
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

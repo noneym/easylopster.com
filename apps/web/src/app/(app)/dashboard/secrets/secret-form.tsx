@@ -3,9 +3,9 @@
 import { useActionState, useEffect, useState } from "react";
 import { createSecret, type SecretFormState } from "./actions";
 
-export function SecretForm() {
+export function SecretForm({ initialName = "" }: { initialName?: string }) {
   const [state, action, pending] = useActionState<SecretFormState, FormData>(createSecret, undefined);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName.toUpperCase());
   const [value, setValue] = useState("");
   const [description, setDescription] = useState("");
   useEffect(() => {
