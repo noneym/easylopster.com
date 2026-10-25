@@ -6,6 +6,12 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- MCP catalog on the MCP servers page: Cloudflare (API, Docs, Browser Rendering), GitHub, Context7,
+  DeepWiki, Hugging Face, Exa, Tavily, Firecrawl, Stripe, Zapier and Composio (the last two are the
+  route to Gmail, Google Calendar, Drive, Sheets and thousands of other apps). "Use" opens the add
+  form prefilled with the URL, transport and header template plus where to get the credential.
+
 ### Changed
 - Workspace file browser is a real tree: folders collapse and expand (memory/ and skills/ open by default), files sit inside their folders; the filter still searches flat.
 

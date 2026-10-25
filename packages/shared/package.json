@@ -11,7 +11,8 @@
     "./node-protocol": "./src/node-protocol.ts",
     "./markdown": "./src/markdown.ts",
     "./mcp": "./src/mcp.ts",
-    "./version": "./src/version.ts"
+    "./version": "./src/version.ts",
+    "./mcp-catalog": "./src/mcp-catalog.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LIMITS } from "@/lib/limits";
+import { MCP_CATALOG, MCP_CATALOG_GROUPS, type McpCatalogGroup } from "@easylopster/shared/mcp-catalog";
 
 export const metadata = { title: "MCP servers" };
 
@@ -49,6 +50,38 @@ export default async function McpPage() {
           ))}
         </ul>
       )}
+
+      <section className="mt-12">
+        <p className="eyebrow mb-2">ready to use</p>
+        <h2 className="text-xl">Popular servers</h2>
+        <p className="mt-1 text-sm text-fg-muted max-w-[64ch]">
+          Pick one, paste the credential it asks for, test, save, then enable it for a bot. Servers that only sign in through OAuth (Notion, Linear, Sentry) are not listed yet.
+        </p>
+        {(Object.keys(MCP_CATALOG_GROUPS) as McpCatalogGroup[]).map((g) => {
+          const items = MCP_CATALOG.filter((e) => e.group === g);
+          if (!items.length) return null;
+          return (
+            <div key={g} className="mt-6">
+              <h3 className="text-sm font-medium text-fg-muted mb-3">{MCP_CATALOG_GROUPS[g]}</h3>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((e) => (
+                  <li key={e.id} className="card p-4 flex flex-col gap-2">
+                    <div>
+                      <p className="font-medium">{e.name}</p>
+                      <p className="text-xs text-fg-faint">{e.vendor}</p>
+                    </div>
+                    <p className="text-sm text-fg-muted leading-relaxed flex-1">{e.description}</p>
+                    <p className="text-xs text-fg-faint">{e.headers || e.url.includes("<") ? "Needs a credential" : "No credentials"}</p>
+                    <Link href={`/dashboard/mcp/new?preset=${e.id}`} className="btn-secondary h-8 text-sm self-start">
+                      Use
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </section>
     </>
   );
 }

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { createMcp, testMcp, updateMcp, type McpFormState } from "./actions";
 
-type Values = { id?: string; name: string; transport: string; url: string; hasHeaders?: boolean };
+type Values = { id?: string; name: string; transport: string; url: string; hasHeaders?: boolean; headers?: string; preset?: { name: string; auth: string; docs: string } };
 
 export function McpForm({ initial }: { initial?: Values }) {
   const editing = !!initial?.id;
@@ -12,7 +12,8 @@ export function McpForm({ initial }: { initial?: Values }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [transport, setTransport] = useState(initial?.transport ?? "streamable-http");
   const [url, setUrl] = useState(initial?.url ?? "");
-  const [headers, setHeaders] = useState(editing && initial?.hasHeaders ? "__keep__" : "");
+  const [headers, setHeaders] = useState(editing && initial?.hasHeaders ? "__keep__" : (initial?.headers ?? ""));
+  const placeholderLeft = /<[A-Z_]+>/.test(`${url} ${headers}`);
   const fe = { ...(test?.fieldErrors ?? {}), ...(create?.fieldErrors ?? {}) };
   const notice = create?.error ?? create?.message ?? test?.message;
   const bad = !!create?.error || test?.ok === false;
@@ -20,6 +21,16 @@ export function McpForm({ initial }: { initial?: Values }) {
   return (
     <form className="card p-6 space-y-6 max-w-xl" noValidate>
       {initial?.id && <input type="hidden" name="id" value={initial.id} />}
+      {initial?.preset && (
+        <div className="rounded-md border border-line bg-bg-sunk px-3 py-2.5 text-sm">
+          <p className="font-medium">{initial.preset.name} preset</p>
+          <p className="text-fg-muted mt-0.5">{initial.preset.auth}</p>
+          <a href={initial.preset.docs} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-4 text-fg-muted hover:text-fg">
+            Provider docs
+          </a>
+          {placeholderLeft && <p className="mt-1 text-xs text-accent-ink">Replace the &lt;PLACEHOLDER&gt; parts below with your own values before testing.</p>}
+        </div>
+      )}
       <div>
         <label htmlFor="name" className="label">
           Name
