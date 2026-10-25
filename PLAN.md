@@ -25,7 +25,7 @@
 2. **API anahtarı ekle** → sağlayıcı seç (Anthropic, OpenAI, OpenRouter, DeepSeek, Google, OpenAI-uyumlu özel URL) → anahtar → "Test et" → varsayılan model.
 3. **Telegram botu ekle** → BotFather token yapıştır → `getMe` ile doğrulanır, webhook kurulur → ayarlar: ad, sistem promptu, API anahtarı + model, erişim politikası (**pairing** / allowlist / açık), grup davranışı (sadece mention), tool izinleri.
 4. İlk DM → pairing kodu → dashboardda "Onayla" → bot cevaplamaya başlar. Birden fazla bot, her biri farklı model/prompt.
-5. **MCP sunucusu ekle** → URL (streamable-http / SSE) + header/token → "Bağlan" → tool listesi çekilir → hangi botlarda açık olacağı seçilir.
+5. **MCP sunucusu ekle** → URL (streamable-http / SSE) + header/token, ya da OAuth-only sunucular için "Sign in with <vendor>" (OAuth 2.1 + PKCE, dynamic client registration; token yenileme gateway'de otomatik) → "Bağlan" → tool listesi çekilir → hangi botlarda açık olacağı seçilir.
 6. **Node bağla** → "Yeni node" → eşleştirme kodu → makinede `npx easylopster-node connect <kod>` → node online → bota `system.run`, `screen.snapshot`, `files.read` gibi yetenekler (her komut ayrı onay / allowlist).
 7. **Web chat** → her botla tarayıcıdan konuşma, oturum geçmişi, kullanım (token/maliyet).
 
@@ -73,7 +73,7 @@
 Tool router her çağrıda "bu tool nerede çalışacak" kararını botun ayarına göre verir (bulut → sandbox → node). Katman 3'ün Docker imajı aynı repodan GitHub Actions ile `ghcr.io/noneym/easylopster-node` olarak yayınlanır.
 
 ### OpenClaw paritesi (24 Ekim 2026 itibarıyla)
-Yapıldı: automations + heartbeat, standing intents, subagents (sessions_spawn, tek seviye), dreaming (04:00 yerel), Telegram medya giriş/çıkış (foto/ses/dosya/video, `MEDIA:`), web_search (Brave/DuckDuckGo), `/think /usage /compact /activation`, düzenlenen mesajlar, ack reaksiyonu, grup geçmiş penceresi, günlük/boşta oturum sıfırlama, hibrit vektör hafıza (OpenAI embedding varsa), BOOTSTRAP.md ile konuşarak kurulum (bot eklenince web chat; IDENTITY/SOUL/USER dosyalarını ajan yazar), sohbetten kurulum araçları (setup_keys/setup_mcp/setup_node/secrets set/skill_import), dashboard Skills sayfası, konuşma listesi/transkript/arama, kullanım sayfası, e-posta doğrulama (SMTP ile), Google ile giriş (env ile).
+Yapıldı: automations + heartbeat, standing intents, subagents (sessions_spawn, tek seviye), dreaming (04:00 yerel), Telegram medya giriş/çıkış (foto/ses/dosya/video, `MEDIA:`), web_search (Brave/DuckDuckGo), `/think /usage /compact /activation`, düzenlenen mesajlar, ack reaksiyonu, grup geçmiş penceresi, günlük/boşta oturum sıfırlama, hibrit vektör hafıza (OpenAI embedding varsa), BOOTSTRAP.md ile konuşarak kurulum (bot eklenince web chat; IDENTITY/SOUL/USER dosyalarını ajan yazar), sohbetten kurulum araçları (setup_keys/setup_mcp/setup_node/secrets set/skill_import), dashboard Skills sayfası, MCP OAuth (Notion/Evernote/Linear/Sentry katalogdan tek tıkla; encOAuth şifreli token + refresh), konuşma listesi/transkript/arama, kullanım sayfası, e-posta doğrulama (SMTP ile), Google ile giriş (env ile).
 
 Kalanlar (düşük öncelik): forum topic başına ayrı agent, Telegram grup reaksiyon/statü emojileri, `[[audio_as_voice]]` sesli yanıt (TTS), görsel üretimi, çoklu agent yönlendirme, webhook teslimatı, subagent async (sessions_yield), vektör indeks için OpenAI dışı sağlayıcılar.
 

@@ -205,6 +205,8 @@ model McpServer {
   transport   String // streamable-http | sse
   url         String    @db.VarChar(2048)
   encHeaders  String?   @db.Text // JSON { "Authorization": "Bearer ..." } encrypted
+  encOAuth    String?   @db.Text // encrypted JSON: OAuth client registration, tokens, discovery, in-flight verifier/state
+  authStatus  String    @default("none") // none (static headers) | pending (sign-in started) | connected | reauth (refresh failed)
   status      String    @default("unknown") // unknown | ok | error
   lastError   String?   @db.VarChar(1024)
   toolsCache  Json? // [{ name, description, inputSchema }]

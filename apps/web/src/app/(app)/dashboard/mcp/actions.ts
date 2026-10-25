@@ -4,13 +4,23 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { decrypt, encrypt } from "@easylopster/shared/crypto";
-import { connectMcp, type McpTransport } from "@easylopster/shared/mcp";
+import { connectMcp, isAuthRequiredError, type McpTransport } from "@easylopster/shared/mcp";
+import { startMcpOAuth as beginOAuth, mcpVendorName, type McpOAuthState } from "@easylopster/shared/mcp-oauth";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { LIMITS } from "@/lib/limits";
+import { newOAuthStateParam, providerFor, readOAuthState } from "@/lib/mcp-oauth";
 
 export type McpFormState =
-  | { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; message?: string; tools?: { name: string; description?: string }[] }
+  | {
+      error?: string;
+      fieldErrors?: Record<string, string>;
+      ok?: boolean;
+      message?: string;
+      tools?: { name: string; description?: string }[];
+      /** The server answered 401 without accepting a token: offer "Sign in with <vendor>". */
+      needsOAuth?: { vendor: string };
+    }
   | undefined;
 
 const schema = z.object({
@@ -45,8 +55,8 @@ function parseHeaders(text: string): Record<string, string> | { error: string } 
   return out;
 }
 
-async function probe(url: string, transport: McpTransport, headers: Record<string, string>) {
-  const conn = await connectMcp({ url, transport, headers });
+async function probe(url: string, transport: McpTransport, headers: Record<string, string>, authProvider?: ReturnType<typeof providerFor>) {
+  const conn = await connectMcp({ url, transport, headers, authProvider });
   try {
     return { tools: conn.tools, instructions: conn.instructions, serverName: conn.serverName };
   } finally {
@@ -64,6 +74,7 @@ export async function testMcp(_prev: McpFormState, formData: FormData): Promise<
     const r = await probe(parsed.data.url, parsed.data.transport, headers);
     return { ok: true, message: `Connected${r.serverName ? ` to ${r.serverName}` : ""}. ${r.tools.length} tools.`, tools: r.tools.map((t) => ({ name: t.name, description: t.description })) };
   } catch (err) {
+    if (isAuthRequiredError(err)) return { ok: false, message: "This server signs in with OAuth. Use the button below; no token header is needed.", needsOAuth: { vendor: mcpVendorName(parsed.data.url) } };
     return { ok: false, message: err instanceof Error ? err.message : String(err) };
   }
 }
@@ -85,6 +96,9 @@ export async function createMcp(_prev: McpFormState, formData: FormData): Promis
     tools = r.tools;
     status = "ok";
   } catch (err) {
+    if (isAuthRequiredError(err) && Object.keys(headers).length === 0) {
+      return { ok: false, message: "This server signs in with OAuth. Use the button below; no token header is needed.", needsOAuth: { vendor: mcpVendorName(parsed.data.url) } };
+    }
     status = "error";
     lastError = (err instanceof Error ? err.message : String(err)).slice(0, 1000);
   }
@@ -111,13 +125,64 @@ export async function syncMcp(id: string) {
   const row = await db.mcpServer.findFirst({ where: { id, userId: user.id } });
   if (!row) return;
   const headers = row.encHeaders ? (JSON.parse(decrypt(row.encHeaders)) as Record<string, string>) : {};
+  const oauth = row.authStatus !== "none" ? providerFor(row.id, readOAuthState(row.encOAuth)) : undefined;
   try {
-    const r = await probe(row.url, row.transport as McpTransport, headers);
-    await db.mcpServer.update({ where: { id }, data: { status: "ok", lastError: null, toolsCache: r.tools as never, toolsSyncAt: new Date() } });
+    const r = await probe(row.url, row.transport as McpTransport, headers, oauth);
+    await db.mcpServer.update({
+      where: { id },
+      data: { status: "ok", lastError: null, toolsCache: r.tools as never, toolsSyncAt: new Date(), ...(oauth ? { authStatus: "connected" } : {}) },
+    });
   } catch (err) {
-    await db.mcpServer.update({ where: { id }, data: { status: "error", lastError: (err instanceof Error ? err.message : String(err)).slice(0, 1000) } });
+    const reauth = err instanceof Error && err.name === "McpReauthRequiredError";
+    await db.mcpServer.update({
+      where: { id },
+      data: { status: "error", lastError: (err instanceof Error ? err.message : String(err)).slice(0, 1000), ...(reauth ? { authStatus: "reauth" } : {}) },
+    });
   }
   revalidatePath(`/dashboard/mcp/${id}`);
+}
+
+const oauthSchema = schema.pick({ name: true, transport: true, url: true });
+
+/**
+ * "Sign in with <vendor>": creates the server row (or reuses `id` for a re-authorization), runs
+ * discovery + dynamic client registration + PKCE through the MCP SDK and sends the browser to the
+ * vendor's consent page. The callback route finishes the exchange.
+ */
+export async function startMcpOAuth(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const existingId = String(formData.get("id") ?? "");
+  let row: { id: string; url: string; encOAuth: string | null };
+  if (existingId) {
+    const found = await db.mcpServer.findFirst({ where: { id: existingId, userId: user.id }, select: { id: true, url: true, encOAuth: true } });
+    if (!found) redirect("/dashboard/mcp");
+    row = found;
+  } else {
+    const parsed = oauthSchema.safeParse(Object.fromEntries(formData));
+    if (!parsed.success) redirect(`/dashboard/mcp/new?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid form")}`);
+    const count = await db.mcpServer.count({ where: { userId: user.id } });
+    if (count >= LIMITS.mcp) redirect(`/dashboard/mcp/new?error=${encodeURIComponent(`The beta allows ${LIMITS.mcp} MCP servers per account.`)}`);
+    row = await db.mcpServer.create({
+      data: { userId: user.id, name: parsed.data.name, transport: parsed.data.transport, url: parsed.data.url, authStatus: "pending", status: "unknown" },
+      select: { id: true, url: true, encOAuth: true },
+    });
+  }
+
+  // Keep the client registration and discovery from a previous sign-in; drop tokens and any stale flow.
+  const prev = readOAuthState(row.encOAuth);
+  const state: McpOAuthState = { client: prev.client, discovery: prev.discovery, state: newOAuthStateParam(row.id) };
+  const provider = providerFor(row.id, state);
+  let target: URL;
+  try {
+    target = await beginOAuth(provider, row.url);
+  } catch (err) {
+    const msg = (err instanceof Error ? err.message : String(err)).slice(0, 1000);
+    await db.mcpServer.update({ where: { id: row.id }, data: { status: "error", lastError: `OAuth sign-in could not start: ${msg}`, authStatus: "reauth" } });
+    revalidatePath(`/dashboard/mcp/${row.id}`);
+    redirect(`/dashboard/mcp/${row.id}`);
+  }
+  await db.mcpServer.update({ where: { id: row.id }, data: { authStatus: "pending", lastError: null } });
+  redirect(target.toString());
 }
 
 export async function updateMcp(_prev: McpFormState, formData: FormData): Promise<McpFormState> {

@@ -9,8 +9,9 @@ import { MCP_CATALOG, MCP_CATALOG_GROUPS, type McpCatalogGroup } from "@easylops
 
 export const metadata = { title: "MCP servers" };
 
-export default async function McpPage() {
+export default async function McpPage({ searchParams }: PageProps<"/dashboard/mcp">) {
   const user = await requireUser();
+  const sp = await searchParams;
   const servers = await db.mcpServer.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
 
   return (
@@ -24,6 +25,11 @@ export default async function McpPage() {
           </Link>
         }
       />
+      {sp.oauth === "invalid" && (
+        <div role="alert" className="mb-6 rounded-md border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+          That OAuth callback did not belong to a sign-in started from this account. Open the server and start the sign-in again.
+        </div>
+      )}
       {servers.length === 0 ? (
         <EmptyState
           icon={<PlugsConnectedIcon size={24} />}
@@ -55,7 +61,7 @@ export default async function McpPage() {
         <p className="eyebrow mb-2">ready to use</p>
         <h2 className="text-xl">Popular servers</h2>
         <p className="mt-1 text-sm text-fg-muted max-w-[64ch]">
-          Pick one, paste the credential it asks for, test, save, then enable it for a bot. Servers that only sign in through OAuth (Notion, Linear, Sentry) are not listed yet.
+          Pick one, paste the credential it asks for (or sign in with the vendor for OAuth servers), test, save, then enable it for a bot.
         </p>
         {(Object.keys(MCP_CATALOG_GROUPS) as McpCatalogGroup[]).map((g) => {
           const items = MCP_CATALOG.filter((e) => e.group === g);
@@ -71,11 +77,11 @@ export default async function McpPage() {
                       <p className="text-xs text-fg-faint">{e.vendor}</p>
                     </div>
                     <p className="text-sm text-fg-muted leading-relaxed flex-1">{e.description}</p>
-                    <p className="text-xs text-fg-faint">{e.oauthOnly ? "OAuth sign-in only" : e.secretName ? `Secret ${e.secretName}` : e.headers || e.url.includes("<") ? "Needs a credential" : "No credentials"}</p>
+                    <p className="text-xs text-fg-faint">{e.oauthOnly ? `Sign in with ${e.vendor}` : e.secretName ? `Secret ${e.secretName}` : e.headers || e.url.includes("<") ? "Needs a credential" : "No credentials"}</p>
                     {e.oauthOnly ? (
-                      <span className="btn-secondary h-8 text-sm self-start opacity-60 cursor-not-allowed" title={e.auth}>
-                        OAuth soon
-                      </span>
+                      <Link href={`/dashboard/mcp/new?preset=${e.id}`} className="btn-secondary h-8 text-sm self-start" title={e.auth}>
+                        Sign in and use
+                      </Link>
                     ) : e.secretName ? (
                       <Link href={`/dashboard/secrets?name=${e.secretName}`} className="btn-secondary h-8 text-sm self-start" title={e.auth}>
                         Set up with a Secret

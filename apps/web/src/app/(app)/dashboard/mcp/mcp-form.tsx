@@ -1,9 +1,24 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createMcp, testMcp, updateMcp, type McpFormState } from "./actions";
+import { useFormStatus } from "react-dom";
+import { createMcp, startMcpOAuth, testMcp, updateMcp, type McpFormState } from "./actions";
 
-type Values = { id?: string; name: string; transport: string; url: string; hasHeaders?: boolean; headers?: string; preset?: { name: string; auth: string; docs: string } };
+type Values = {
+  id?: string;
+  name: string;
+  transport: string;
+  url: string;
+  hasHeaders?: boolean;
+  headers?: string;
+  preset?: { name: string; auth: string; docs: string };
+  /** Catalog entry that only signs in with OAuth: skip headers, show the sign-in button right away. */
+  oauth?: { vendor: string };
+  /** Editing a server that was connected through OAuth (none | pending | connected | reauth). */
+  authStatus?: string;
+  /** Error carried back from a failed sign-in start (?error=). */
+  error?: string;
+};
 
 export function McpForm({ initial }: { initial?: Values }) {
   const editing = !!initial?.id;
@@ -15,8 +30,11 @@ export function McpForm({ initial }: { initial?: Values }) {
   const [headers, setHeaders] = useState(editing && initial?.hasHeaders ? "__keep__" : (initial?.headers ?? ""));
   const placeholderLeft = /<[A-Z_]+>/.test(`${url} ${headers}`);
   const fe = { ...(test?.fieldErrors ?? {}), ...(create?.fieldErrors ?? {}) };
-  const notice = create?.error ?? create?.message ?? test?.message;
-  const bad = !!create?.error || test?.ok === false;
+  const notice = create?.error ?? create?.message ?? test?.message ?? initial?.error;
+  const bad = !!create?.error || test?.ok === false || !!initial?.error;
+  const oauthEditing = editing && !!initial?.authStatus && initial.authStatus !== "none";
+  const oauthVendor = initial?.oauth?.vendor ?? create?.needsOAuth?.vendor ?? test?.needsOAuth?.vendor;
+  const oauthMode = !editing && !!oauthVendor;
 
   return (
     <form className="card p-6 space-y-6 max-w-xl" noValidate>
@@ -57,32 +75,52 @@ export function McpForm({ initial }: { initial?: Values }) {
           {fe.url && <p className="error">{fe.url}</p>}
         </div>
       </div>
-      <div>
-        <label htmlFor="headers" className="label">
-          Headers (optional)
-        </label>
-        {headers === "__keep__" ? (
-          <div className="flex items-center gap-3">
-            <input type="hidden" name="headers" value="__keep__" />
-            <p className="text-sm text-fg-muted">Saved headers are kept.</p>
-            <button type="button" className="btn-ghost h-8 text-sm" onClick={() => setHeaders("")}>
-              Replace
-            </button>
-          </div>
-        ) : (
-          <textarea
-            id="headers"
-            name="headers"
-            value={headers}
-            onChange={(e) => setHeaders(e.target.value)}
-            rows={3}
-            className="input h-auto py-2 font-mono text-sm"
-            placeholder={"Authorization: Bearer …\nX-Api-Key: …"}
-          />
-        )}
-        <p className="help">One per line, stored encrypted. Local stdio servers are not supported here; run them on a node later.</p>
-        {fe.headers && <p className="error">{fe.headers}</p>}
-      </div>
+      {oauthEditing ? (
+        <div>
+          <p className="label">Authorization</p>
+          <p className="text-sm text-fg-muted">
+            {initial?.authStatus === "connected"
+              ? "Signed in with OAuth. Tokens are stored encrypted and refreshed automatically."
+              : initial?.authStatus === "pending"
+                ? "OAuth sign-in started but not finished."
+                : "The OAuth sign-in has expired; use “Sign in again” above."}
+          </p>
+        </div>
+      ) : oauthMode ? (
+        <div>
+          <p className="label">Authorization</p>
+          <p className="text-sm text-fg-muted">
+            {oauthVendor} signs you in on its own site (OAuth 2.1 with PKCE). You will be sent there and back; no token to paste.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="headers" className="label">
+            Headers (optional)
+          </label>
+          {headers === "__keep__" ? (
+            <div className="flex items-center gap-3">
+              <input type="hidden" name="headers" value="__keep__" />
+              <p className="text-sm text-fg-muted">Saved headers are kept.</p>
+              <button type="button" className="btn-ghost h-8 text-sm" onClick={() => setHeaders("")}>
+                Replace
+              </button>
+            </div>
+          ) : (
+            <textarea
+              id="headers"
+              name="headers"
+              value={headers}
+              onChange={(e) => setHeaders(e.target.value)}
+              rows={3}
+              className="input h-auto py-2 font-mono text-sm"
+              placeholder={"Authorization: Bearer …\nX-Api-Key: …"}
+            />
+          )}
+          <p className="help">One per line, stored encrypted. Servers that only sign in with OAuth are detected on test: leave this empty and use the sign-in button.</p>
+          {fe.headers && <p className="error">{fe.headers}</p>}
+        </div>
+      )}
 
       {notice && (
         <div role="status" className={`rounded-md border px-3 py-2 text-sm ${bad ? "border-accent/40 bg-accent-soft" : "border-line bg-bg-sunk"}`}>
@@ -102,13 +140,30 @@ export function McpForm({ initial }: { initial?: Values }) {
       )}
 
       <div className="flex flex-wrap gap-3">
-        <button type="submit" formAction={testAction} disabled={testing || creating || headers === "__keep__"} className="btn-secondary">
-          {testing ? "Connecting" : "Test connection"}
-        </button>
-        <button type="submit" formAction={createAction} disabled={creating || testing} className="btn-primary">
-          {creating ? "Saving" : editing ? "Save" : "Add server"}
-        </button>
+        {oauthMode ? (
+          <SignInButton vendor={oauthVendor!} ready={!!name.trim() && !!url.trim()} />
+        ) : (
+          <>
+            {!oauthEditing && (
+              <button type="submit" formAction={testAction} disabled={testing || creating || headers === "__keep__"} className="btn-secondary">
+                {testing ? "Connecting" : "Test connection"}
+              </button>
+            )}
+            <button type="submit" formAction={createAction} disabled={creating || testing} className="btn-primary">
+              {creating ? "Saving" : editing ? "Save" : "Add server"}
+            </button>
+          </>
+        )}
       </div>
     </form>
+  );
+}
+
+function SignInButton({ vendor, ready }: { vendor: string; ready: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" formAction={startMcpOAuth} disabled={pending || !ready} className="btn-primary">
+      {pending ? "Redirecting" : `Sign in with ${vendor}`}
+    </button>
   );
 }

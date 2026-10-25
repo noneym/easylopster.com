@@ -17,7 +17,15 @@ export default async function NewMcpPage({ searchParams }: PageProps<"/dashboard
       />
       <McpForm
         key={preset?.id ?? "blank"}
-        initial={preset ? { name: preset.name, transport: preset.transport, url: preset.url, headers: preset.headers ?? "", preset: { name: preset.name, auth: preset.auth, docs: preset.docs } } : undefined}
+        initial={{
+          name: preset?.name ?? "",
+          transport: preset?.transport ?? "streamable-http",
+          url: preset?.url ?? "",
+          headers: preset?.headers ?? "",
+          preset: preset ? { name: preset.name, auth: preset.auth, docs: preset.docs } : undefined,
+          oauth: preset?.oauthOnly ? { vendor: preset.vendor } : undefined,
+          error: typeof sp.error === "string" ? sp.error : undefined,
+        }}
       />
     </>
   );

@@ -2,17 +2,21 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { deleteMcp, syncMcp } from "../actions";
+import { deleteMcp, startMcpOAuth, syncMcp } from "../actions";
 import { McpForm } from "../mcp-form";
+import { mcpVendorName } from "@easylopster/shared/mcp-oauth";
 
 export const metadata = { title: "MCP server" };
 
-export default async function McpDetailPage({ params }: PageProps<"/dashboard/mcp/[id]">) {
+export default async function McpDetailPage({ params, searchParams }: PageProps<"/dashboard/mcp/[id]">) {
   const user = await requireUser();
   const { id } = await params;
+  const sp = await searchParams;
   const s = await db.mcpServer.findFirst({ where: { id, userId: user.id }, include: { bots: { include: { bot: { select: { id: true, name: true } } } } } });
   if (!s) notFound();
   const tools = Array.isArray(s.toolsCache) ? (s.toolsCache as { name: string; description?: string }[]) : [];
+  const oauth = s.authStatus !== "none";
+  const vendor = mcpVendorName(s.url);
 
   return (
     <>
@@ -20,13 +24,28 @@ export default async function McpDetailPage({ params }: PageProps<"/dashboard/mc
         title={s.name}
         description={`${s.transport} · ${s.url}`}
         action={
-          <form action={syncMcp.bind(null, s.id)}>
-            <button type="submit" className="btn-secondary">
-              Reconnect and refresh tools
-            </button>
-          </form>
+          <div className="flex flex-wrap gap-2">
+            {oauth && (
+              <form action={startMcpOAuth}>
+                <input type="hidden" name="id" value={s.id} />
+                <button type="submit" className={s.authStatus === "connected" ? "btn-secondary" : "btn-primary"}>
+                  {s.authStatus === "connected" ? `Sign in again with ${vendor}` : `Sign in with ${vendor}`}
+                </button>
+              </form>
+            )}
+            <form action={syncMcp.bind(null, s.id)}>
+              <button type="submit" className="btn-secondary">
+                Reconnect and refresh tools
+              </button>
+            </form>
+          </div>
         }
       />
+      {sp.oauth === "ok" && (
+        <div role="status" className="mb-6 rounded-md border border-line bg-bg-sunk px-4 py-3 text-sm">
+          Signed in with {vendor}. {tools.length} tools listed; enable the server on a bot's page to use them.
+        </div>
+      )}
       {s.lastError && (
         <div role="alert" className="mb-6 rounded-md border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
           <p className="font-medium">Last error</p>
@@ -35,7 +54,7 @@ export default async function McpDetailPage({ params }: PageProps<"/dashboard/mc
       )}
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] max-w-5xl">
         <div className="space-y-6">
-          <McpForm initial={{ id: s.id, name: s.name, transport: s.transport, url: s.url, hasHeaders: !!s.encHeaders }} />
+          <McpForm initial={{ id: s.id, name: s.name, transport: s.transport, url: s.url, hasHeaders: !!s.encHeaders, authStatus: s.authStatus }} />
           <section className="card p-6">
             <h2 className="font-semibold tracking-tight">Tools ({tools.length})</h2>
             <p className="text-sm text-fg-muted mt-0.5">
@@ -58,6 +77,11 @@ export default async function McpDetailPage({ params }: PageProps<"/dashboard/mc
           <div className="card p-5">
             <p className="text-sm text-fg-muted">Status</p>
             <p className={`mt-1 font-medium capitalize ${s.status === "error" ? "text-accent-ink" : ""}`}>{s.status}</p>
+            {oauth && (
+              <p className="mt-2 text-sm text-fg-muted">
+                {s.authStatus === "connected" ? `OAuth: signed in with ${vendor}; tokens refresh automatically.` : s.authStatus === "pending" ? "OAuth: sign-in not finished." : "OAuth: sign in again."}
+              </p>
+            )}
           </div>
           <div className="card p-5">
             <p className="text-sm text-fg-muted">Used by</p>

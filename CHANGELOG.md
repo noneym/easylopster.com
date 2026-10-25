@@ -13,7 +13,17 @@ All notable changes to easylopster are documented here. The format follows
   history, compaction at ~70% of that), a context-length error triggers an automatic compaction
   and one retry, and a gauge shows usage: web chat footer ("context 42% · 108k / 256k", with a
   nudge past 80%), Telegram /status, and the model picker lists sizes next to ids.
-- Evernote and Notion in the MCP catalog, marked OAuth-only (needs MCP OAuth support, not available yet).
+- MCP OAuth: remote servers that only sign in with OAuth (Notion, Evernote, Linear, Sentry and any
+  server answering 401 with resource metadata) can now be added from the dashboard. The flow follows
+  the MCP authorization spec (OAuth 2.1 + PKCE, dynamic client registration via the MCP SDK):
+  "Sign in with <vendor>" registers a client, sends you to the vendor's consent page and the
+  callback (/api/mcp/oauth/callback) exchanges the code, lists the tools and marks the server
+  connected. Tokens, the client registration and discovery data live encrypted in McpServer.encOAuth;
+  the gateway sends the bearer token, refreshes it with the refresh token before expiry or on 401
+  and persists the new tokens. When a refresh fails the server shows "Sign in again" with a
+  re-authorize button. The generic add form detects a 401 on "Test connection" and offers the
+  sign-in; static-header servers work as before. Catalog: Notion and Evernote are usable, Linear
+  (mcp.linear.app) and Sentry (mcp.sentry.dev) added.
 
 ### Fixed
 - A development gateway sharing the production database ran everyone's automations and dreaming

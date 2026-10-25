@@ -11,6 +11,7 @@
     "./node-protocol": "./src/node-protocol.ts",
     "./markdown": "./src/markdown.ts",
     "./mcp": "./src/mcp.ts",
+    "./mcp-oauth": "./src/mcp-oauth.ts",
     "./version": "./src/version.ts",
     "./mcp-catalog": "./src/mcp-catalog.ts",
     "./context": "./src/context.ts"

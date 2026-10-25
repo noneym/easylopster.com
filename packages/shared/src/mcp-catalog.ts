@@ -1,7 +1,7 @@
 /**
- * Ready-to-use remote MCP servers. Only servers that work with a plain URL plus static headers
- * (API key / token) are listed; OAuth-only servers (Notion, Linear, Sentry, ...) need an
- * interactive sign-in flow we do not run yet. URLs and auth come from each vendor's docs.
+ * Ready-to-use remote MCP servers: either a plain URL plus static headers (API key / token) or an
+ * OAuth-only server (Notion, Evernote, Linear, Sentry) that the dashboard signs in to with the MCP
+ * authorization flow (OAuth 2.1 + PKCE, dynamic client registration). URLs come from each vendor's docs.
  */
 export type McpCatalogGroup = "cloudflare" | "dev" | "search" | "business" | "hub" | "builtin";
 
@@ -21,7 +21,7 @@ export interface McpCatalogEntry {
   docs: string;
   /** Built-in bridge instead of an MCP connection: the user adds this Secret and enables it for the bot. */
   secretName?: string;
-  /** The server only accepts OAuth sign-in (no static token); easylopster cannot connect it yet. */
+  /** The server only accepts OAuth sign-in (no static token): "Use" starts the sign-in instead of asking for headers. */
   oauthOnly?: boolean;
 }
 
@@ -197,7 +197,7 @@ MCP_CATALOG.push({
   description: "Search, read and write Notion pages and databases (Notion MCP, beta).",
   transport: "streamable-http",
   url: "https://mcp.notion.com/mcp",
-  auth: "OAuth sign-in only (the server's own authorization flow); an internal integration token is not accepted here. Coming once easylopster supports MCP OAuth.",
+  auth: "Sign in with your Notion account; the workspace you pick during consent is what the bot can see. Internal integration tokens are not accepted by this server.",
   docs: "https://developers.notion.com/guides/mcp/overview",
   oauthOnly: true,
 });
@@ -210,8 +210,34 @@ MCP_CATALOG.push({
   description: "Search, read and create notes and notebooks in Evernote.",
   transport: "streamable-http",
   url: "https://mcp.evernote.com/mcp",
-  auth: "Sign-in through Evernote OAuth only (accounts.evernote.com); no API key. Coming once easylopster supports MCP OAuth.",
+  auth: "Sign in with your Evernote account (accounts.evernote.com); no API key.",
   docs: "https://mcp.evernote.com/",
+  oauthOnly: true,
+});
+
+MCP_CATALOG.push({
+  id: "linear",
+  name: "Linear",
+  vendor: "Linear",
+  group: "dev",
+  description: "Issues, projects, cycles, comments and teams in Linear.",
+  transport: "streamable-http",
+  url: "https://mcp.linear.app/mcp",
+  auth: "Sign in with your Linear account and approve the workspace during consent.",
+  docs: "https://linear.app/docs/mcp",
+  oauthOnly: true,
+});
+
+MCP_CATALOG.push({
+  id: "sentry",
+  name: "Sentry",
+  vendor: "Sentry",
+  group: "dev",
+  description: "Issues, errors, traces and projects from Sentry, with Seer root-cause analysis.",
+  transport: "streamable-http",
+  url: "https://mcp.sentry.dev/mcp",
+  auth: "Sign in with your Sentry account and pick the organization during consent.",
+  docs: "https://docs.sentry.io/product/sentry-mcp/",
   oauthOnly: true,
 });
 
