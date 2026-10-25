@@ -6,6 +6,8 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-26
+
 ### Added
 - Admin panel (/dashboard/admin, "Admin" in the sidebar for role=admin accounts): user list with
   search (email, name, created, verified, role, bots/nodes/MCP counts, today's messages, effective
@@ -35,16 +37,6 @@ All notable changes to easylopster are documented here. The format follows
   sign-in; static-header servers work as before. Catalog: Notion and Evernote are usable, Linear
   (mcp.linear.app) and Sentry (mcp.sentry.dev) added.
 
-### Fixed
-- A development gateway sharing the production database ran everyone's automations and dreaming
-  on the developer's machine (wrong workspace, no nodes) and messaged the owners; `GATEWAY_ACCOUNT_EMAILS`
-  now scopes polling, the automation scheduler and dreaming to the listed accounts.
-- Automation replies that are just a status marker (NO_NEW_POST, NOTHING_NEW, ... on one line) are
-  logged as silent instead of being sent to the owner; the wake message now spells out the NO_REPLY rule.
-- A reply ending in a NO_REPLY line is delivered without that line; a reply that is only NO_REPLY
-  (with or without punctuation) stays silent.
-
-### Added
 - Telegram streaming modes "Block" and "Progress" now do what their labels say: Block sends each
   completed paragraph as its own message while the reply is still being written (code fences are
   never split); Progress shows one silent status message (thinking / running <tool> / writing…)
@@ -60,6 +52,15 @@ All notable changes to easylopster are documented here. The format follows
 
 ### Changed
 - Workspace file browser is a real tree: folders collapse and expand (memory/ and skills/ open by default), files sit inside their folders; the filter still searches flat.
+
+### Fixed
+- A development gateway sharing the production database ran everyone's automations and dreaming
+  on the developer's machine (wrong workspace, no nodes) and messaged the owners; `GATEWAY_ACCOUNT_EMAILS`
+  now scopes polling, the automation scheduler and dreaming to the listed accounts.
+- Automation replies that are just a status marker (NO_NEW_POST, NOTHING_NEW, ... on one line) are
+  logged as silent instead of being sent to the owner; the wake message now spells out the NO_REPLY rule.
+- A reply ending in a NO_REPLY line is delivered without that line; a reply that is only NO_REPLY
+  (with or without punctuation) stays silent.
 
 ## [1.3.0] - 2026-10-24
 
@@ -226,7 +227,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/noneym/easylopster.com/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/noneym/easylopster.com/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/noneym/easylopster.com/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/noneym/easylopster.com/compare/v1.1.0...v1.1.1
