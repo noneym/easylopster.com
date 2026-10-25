@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { botScope } from "../account-scope.ts";
 import { db } from "@easylopster/db";
 import { resolveModel } from "./providers.ts";
 import { Workspace } from "../workspace/fs.ts";
@@ -58,7 +59,7 @@ export async function dreamForBot(botId: string): Promise<"done" | "skipped" | "
 export function startDreaming(): () => void {
   const tick = async () => {
     try {
-      const bots = await db.bot.findMany({ where: { status: "active", dreaming: true, providerKeyId: { not: null } }, include: { user: { select: { timezone: true } } } });
+      const bots = await db.bot.findMany({ where: { status: "active", dreaming: true, providerKeyId: { not: null }, ...botScope() }, include: { user: { select: { timezone: true } } } });
       for (const b of bots) {
         const tz = b.user.timezone || "UTC";
         if (localHour(tz) < DREAM_HOUR) continue;

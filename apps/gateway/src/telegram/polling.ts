@@ -1,4 +1,5 @@
 import { Api } from "grammy";
+import { botScope } from "../account-scope.ts";
 import { Queue } from "bullmq";
 import { db } from "@easylopster/db";
 import { QUEUES, queuePrefix } from "@easylopster/shared";
@@ -60,11 +61,9 @@ export function startTelegramPolling(): () => void {
   }
 
   async function sync() {
-    // Dev safety: the database is shared with production, and polling deletes a bot's webhook.
-    // TELEGRAM_POLLING_EMAILS limits polling to bots owned by these accounts (comma separated).
-    const emails = (process.env.TELEGRAM_POLLING_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+    // Dev safety: the database is shared with production, and polling deletes a bot's webhook (see account-scope.ts).
     const bots = await db.bot.findMany({
-      where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" }, ...(emails.length ? { user: { email: { in: emails } } } : {}) },
+      where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" }, ...botScope() },
       select: { id: true, encToken: true },
     });
     const ids = new Set(bots.map((b) => b.id));

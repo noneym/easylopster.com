@@ -3,6 +3,7 @@ import { Worker, type Job } from "bullmq";
 import { APP_VERSION, QUEUES, queuePrefix } from "@easylopster/shared";
 import { db } from "@easylopster/db";
 import { generateText } from "ai";
+import { accountScopeSummary } from "./account-scope.ts";
 import { resolveModel } from "./agent/providers.ts";
 
 const MODEL_TEST_TIMEOUT_MS = 25_000;
@@ -108,7 +109,7 @@ async function main() {
   await redis().ping();
   await db.$queryRaw`SELECT 1`;
 
-  server.listen(e.GATEWAY_PORT, "0.0.0.0", () => log(`listening on :${e.GATEWAY_PORT} (ws: ${e.GATEWAY_WS_URL}, queue prefix ${queuePrefix()})`));
+  server.listen(e.GATEWAY_PORT, "0.0.0.0", () => log(`listening on :${e.GATEWAY_PORT} (ws: ${e.GATEWAY_WS_URL}, queue prefix ${queuePrefix()}, ${accountScopeSummary()})`));
 
   // Dev only: pull Telegram updates when there is no public webhook URL.
   const stopPolling = process.env.TELEGRAM_POLLING === "1" ? startTelegramPolling() : () => {};

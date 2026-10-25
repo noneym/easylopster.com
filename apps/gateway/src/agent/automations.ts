@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import { botScope } from "../account-scope.ts";
 import { CronExpressionParser } from "cron-parser";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
@@ -64,7 +65,7 @@ export function startAutomationScheduler(): () => void {
     try {
       const now = new Date();
       const due = await db.automation.findMany({
-        where: { enabled: true, OR: [{ nextRunAt: { lte: now } }, { nextRunAt: null }], bot: { status: "active" } },
+        where: { enabled: true, OR: [{ nextRunAt: { lte: now } }, { nextRunAt: null }], bot: { status: "active", ...botScope() } },
         include: { bot: { select: { user: { select: { timezone: true } } } } },
         take: 50,
       });

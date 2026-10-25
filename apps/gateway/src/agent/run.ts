@@ -79,12 +79,12 @@ const CONTINUE_PROMPT =
   "[easylopster] Your previous turn was cut off by the per-turn tool budget before the task was finished. Continue the same task from exactly where you stopped: do not restart, do not repeat completed steps, do not re-explain. When the task is done, give the final result; if you are blocked, say what blocks you.";
 
 export function isSilent(text: string) {
-  return text.trim().toUpperCase() === "NO_REPLY";
+  return /^\s*NO_REPLY[.!]?\s*$/i.test(text);
 }
 
-/** Strips a leading NO_REPLY line (OpenClaw semantics) and inline reply tags we do not render. */
+/** Strips leading/trailing NO_REPLY lines (OpenClaw semantics) and inline reply tags we do not render. */
 export function cleanFinalText(text: string): string {
-  let t = text.replace(/^\s*NO_REPLY\s*\n/, "");
+  let t = text.replace(/^\s*NO_REPLY[.!]?\s*\n/i, "").replace(/\n\s*NO_REPLY[.!]?\s*$/i, "");
   t = t.replace(/\[\[\s*(reply_to_current|reply_to\s*:[^\]]*|audio_as_voice)\s*\]\]/gi, "");
   return t.trim();
 }

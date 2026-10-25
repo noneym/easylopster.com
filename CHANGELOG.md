@@ -6,6 +6,13 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- A development gateway sharing the production database ran everyone's automations and dreaming
+  on the developer's machine (wrong workspace, no nodes) and messaged the owners; `GATEWAY_ACCOUNT_EMAILS`
+  now scopes polling, the automation scheduler and dreaming to the listed accounts.
+- A reply ending in a NO_REPLY line is delivered without that line; a reply that is only NO_REPLY
+  (with or without punctuation) stays silent.
+
 ### Added
 - Telegram streaming modes "Block" and "Progress" now do what their labels say: Block sends each
   completed paragraph as its own message while the reply is still being written (code fences are
