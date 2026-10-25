@@ -3,10 +3,11 @@ import { ArrowRightIcon, CheckCircleIcon, CircleIcon } from "@phosphor-icons/rea
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 
 export default async function OverviewPage() {
   const user = await requireUser();
+  const limits = limitsFor(user);
   const [keys, bots, mcps, nodes, pending] = await Promise.all([
     db.providerKey.count({ where: { userId: user.id } }),
     db.bot.count({ where: { userId: user.id } }),
@@ -54,10 +55,10 @@ export default async function OverviewPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Bots", value: bots, limit: LIMITS.bots, href: "/dashboard/bots" },
+          { label: "Bots", value: bots, limit: limits.bots, href: "/dashboard/bots" },
           { label: "API keys", value: keys, href: "/dashboard/keys" },
-          { label: "MCP servers", value: mcps, limit: LIMITS.mcp, href: "/dashboard/mcp" },
-          { label: "Nodes", value: nodes, limit: LIMITS.nodes, href: "/dashboard/nodes" },
+          { label: "MCP servers", value: mcps, limit: limits.mcp, href: "/dashboard/mcp" },
+          { label: "Nodes", value: nodes, limit: limits.nodes, href: "/dashboard/nodes" },
         ].map((m) => (
           <Link key={m.label} href={m.href} className="card p-5 hover:border-line-strong transition-colors">
             <p className="text-sm text-fg-muted">{m.label}</p>

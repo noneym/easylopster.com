@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 import { PROVIDERS, type ProviderId } from "@easylopster/shared/providers";
 import { NewBotForm } from "./new-bot-form";
 
@@ -26,10 +26,10 @@ export default async function NewBotPage() {
             Add API key
           </Link>
         </div>
-      ) : count >= LIMITS.bots ? (
+      ) : count >= limitsFor(user).bots ? (
         <div className="card p-6 max-w-xl">
           <p className="font-medium">Bot limit reached</p>
-          <p className="mt-1 text-sm text-fg-muted">The beta allows {LIMITS.bots} bots per account. Delete one to connect another.</p>
+          <p className="mt-1 text-sm text-fg-muted">Your account allows {limitsFor(user).bots} bots. Delete one to connect another.</p>
         </div>
       ) : (
         <NewBotForm

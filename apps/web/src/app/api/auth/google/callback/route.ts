@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { randomToken } from "@easylopster/shared/crypto";
 import { db } from "@/lib/db";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSession, hashPassword, promoteIfAdminEmail } from "@/lib/auth";
+import { notifyAdminNewUser } from "@/lib/admin-notify";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +38,11 @@ export async function GET(req: Request) {
   let user = await db.user.findUnique({ where: { email } });
   if (!user) {
     user = await db.user.create({ data: { email, name: info.name ?? null, passwordHash: await hashPassword(randomToken(24)), emailVerifiedAt: new Date() } });
+    await notifyAdminNewUser({ id: user.id, email: user.email, name: user.name, provider: "google" });
   } else if (!user.emailVerifiedAt) {
     await db.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
   }
+  await promoteIfAdminEmail(user);
   await createSession(user.id);
   return Response.redirect(`${base}${next}`, 302);
 }

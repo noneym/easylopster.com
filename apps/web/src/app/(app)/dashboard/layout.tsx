@@ -3,12 +3,15 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav } from "@/components/app/sidebar-nav";
 import { MobileNav } from "@/components/app/mobile-nav";
-import { requireUser } from "@/lib/auth";
+import { getImpersonator, requireUser } from "@/lib/auth";
+import { ImpersonationBanner } from "@/components/app/impersonation-banner";
 import { logout, resendVerification } from "@/app/(auth)/actions";
 import { APP_VERSION } from "@easylopster/shared/version";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const user = await requireUser();
+  const impersonator = await getImpersonator();
+  const isAdmin = user.role === "admin";
   return (
     <div className="min-h-[100dvh] md:grid md:grid-cols-[240px_1fr]">
       <aside className="hidden md:flex flex-col border-r border-line bg-bg-elev/60 p-4 sticky top-0 h-[100dvh]">
@@ -16,7 +19,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <Logo href="/dashboard" />
         </div>
         <div className="mt-6 flex-1">
-          <SidebarNav />
+          <SidebarNav admin={isAdmin} />
         </div>
         <div className="border-t border-line pt-3 px-1">
           <p className="truncate text-sm font-medium px-2">{user.name ?? user.email}</p>
@@ -35,9 +38,10 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       </aside>
 
       <div className="flex flex-col min-w-0">
+        {impersonator && impersonator.id !== user.id && <ImpersonationBanner adminEmail={impersonator.email} userEmail={user.email} userId={user.id} />}
         <header className="md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-bg/90 backdrop-blur px-3">
           <div className="flex items-center gap-1">
-            <MobileNav />
+            <MobileNav admin={isAdmin} />
             <Logo href="/dashboard" />
           </div>
           <div className="flex items-center gap-1">

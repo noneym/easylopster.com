@@ -7,7 +7,7 @@ import { decrypt, encrypt, randomToken } from "@easylopster/shared/crypto";
 import { db } from "@/lib/db";
 import { gatewayFetch } from "@/lib/gateway";
 import { requireUser } from "@/lib/auth";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 import { BOT_COMMANDS, isValidBotToken, tg } from "@/lib/telegram";
 
 export type BotFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; message?: string } | undefined;
@@ -30,8 +30,9 @@ function webhooksEnabled() {
 
 export async function createBot(_prev: BotFormState, formData: FormData): Promise<BotFormState> {
   const user = await requireUser();
+  const limits = limitsFor(user);
   const count = await db.bot.count({ where: { userId: user.id } });
-  if (count >= LIMITS.bots) return { error: `The beta allows ${LIMITS.bots} bots per account.` };
+  if (count >= limits.bots) return { error: `Your account allows ${limits.bots} bots.` };
 
   const parsed = z
     .object({

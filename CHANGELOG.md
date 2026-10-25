@@ -7,6 +7,16 @@ All notable changes to easylopster are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Admin panel (/dashboard/admin, "Admin" in the sidebar for role=admin accounts): user list with
+  search (email, name, created, verified, role, bots/nodes/MCP counts, today's messages, effective
+  limits) and a per-user page. Accounts listed in `ADMIN_EMAILS` become admins when they sign in.
+  Per-user quota overrides (User.limitBots/limitNodes/limitMcp/limitMessagesPerDay, null = global
+  BETA_MAX_* default) are edited there and honored by the dashboard, the chat setup tools and the
+  gateway's daily message quota (`limitsFor(user)` in @easylopster/shared/limits). "Sign in as this
+  user" opens the member's dashboard with a persistent "Viewing as <email> — Back to admin" banner;
+  the admin's own session is parked in the `el_admin_session` cookie and restored on return (logged
+  on the server). Every registration (email or Google) emails `ADMIN_NOTIFY_EMAIL` with the new
+  user's details and a link to their admin page; mail failures never block sign-up.
 - Context-window awareness: the key test stores each model's context size when the provider lists
   it (OpenAI-compatible endpoints, OpenRouter, Google); other models come from a built-in table
   (default 128k). History and compaction budgets now scale with the window (about 55% of it for

@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 
 export const metadata = { title: "Usage" };
 
@@ -35,7 +35,7 @@ export default async function UsagePage() {
       <PageHeader title="Usage" description="Messages, tokens and tool calls per day (UTC) across all your bots. Tokens are billed by your own providers." />
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {[
-          { label: "Today", value: `${today?.messages ?? 0} / ${LIMITS.messagesPerDay}`, sub: "messages (beta limit)" },
+          { label: "Today", value: `${today?.messages ?? 0} / ${limitsFor(user).messagesPerDay}`, sub: "messages (daily limit)" },
           { label: "30 days", value: total.m.toLocaleString(), sub: "messages" },
           { label: "Tokens", value: `${(total.i / 1000).toFixed(0)}k / ${(total.o / 1000).toFixed(0)}k`, sub: "in / out, 30 days" },
           { label: "Tool calls", value: total.t.toLocaleString(), sub: "30 days" },

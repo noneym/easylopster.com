@@ -7,7 +7,7 @@ import { pairingCode } from "@easylopster/shared/crypto";
 import { nodeCapabilitySchema } from "@easylopster/shared/node-protocol";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 
 export type NodeFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; message?: string } | undefined;
 
@@ -15,8 +15,9 @@ const PAIRING_TTL_MS = 15 * 60_000;
 
 export async function createNode(_prev: NodeFormState, formData: FormData): Promise<NodeFormState> {
   const user = await requireUser();
+  const limits = limitsFor(user);
   const count = await db.node.count({ where: { userId: user.id, status: { not: "revoked" } } });
-  if (count >= LIMITS.nodes) return { error: `The beta allows ${LIMITS.nodes} nodes per account.` };
+  if (count >= limits.nodes) return { error: `Your account allows ${limits.nodes} nodes.` };
   const parsed = z.object({ name: z.string().trim().min(1, "Give the node a name").max(60) }).safeParse({ name: formData.get("name") });
   if (!parsed.success) return { fieldErrors: { name: parsed.error.issues[0]?.message ?? "Invalid" } };
 

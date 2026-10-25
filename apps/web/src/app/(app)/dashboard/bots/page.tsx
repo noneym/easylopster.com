@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 
 export const metadata = { title: "Bots" };
 
@@ -16,9 +16,9 @@ export default async function BotsPage() {
     <>
       <PageHeader
         title="Bots"
-        description={`Each bot is a Telegram bot with its own model, prompt and access list. ${bots.length} of ${LIMITS.bots} used.`}
+        description={`Each bot is a Telegram bot with its own model, prompt and access list. ${bots.length} of ${limitsFor(user).bots} used.`}
         action={
-          <Link href="/dashboard/bots/new" className="btn-primary" aria-disabled={bots.length >= LIMITS.bots}>
+          <Link href="/dashboard/bots/new" className="btn-primary" aria-disabled={bots.length >= limitsFor(user).bots}>
             New bot
           </Link>
         }

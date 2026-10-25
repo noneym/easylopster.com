@@ -18,6 +18,11 @@ model User {
   role            String    @default("user") // user | admin
   emailVerifiedAt DateTime?
   timezone        String    @default("UTC")
+  // Per-account quota overrides set by an admin; null = global BETA_MAX_* default
+  limitBots           Int?
+  limitNodes          Int?
+  limitMcp            Int?
+  limitMessagesPerDay Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

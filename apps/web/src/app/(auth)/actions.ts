@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createSession, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
+import { createSession, destroySession, hashPassword, promoteIfAdminEmail, verifyPassword } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/verification";
+import { notifyAdminNewUser } from "@/lib/admin-notify";
 
 export type AuthState = { error?: string; fieldErrors?: Record<string, string> } | undefined;
 
@@ -43,8 +44,10 @@ export async function register(_prev: AuthState, formData: FormData): Promise<Au
       emailVerifiedAt: process.env.EMAIL_VERIFICATION === "on" ? null : new Date(),
     },
   });
+  await promoteIfAdminEmail(user);
   await createSession(user.id);
   if (!user.emailVerifiedAt) await sendVerificationEmail(user.id, user.email).catch(() => false);
+  await notifyAdminNewUser({ id: user.id, email: user.email, name: user.name, provider: "password" });
   redirect(safeNext(formData.get("next")));
 }
 
@@ -69,6 +72,7 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   const ok = user ? await verifyPassword(password, user.passwordHash) : false;
   if (!user || !ok) return { error: "Email or password is incorrect" };
 
+  await promoteIfAdminEmail(user);
   await createSession(user.id);
   redirect(safeNext(formData.get("next")));
 }

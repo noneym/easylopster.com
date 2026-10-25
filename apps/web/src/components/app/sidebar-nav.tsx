@@ -10,6 +10,7 @@ import {
   ChartBarIcon,
   PlugsConnectedIcon,
   RobotIcon,
+  ShieldCheckIcon,
   SquaresFourIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -25,11 +26,14 @@ const ITEMS: { href: string; label: string; icon: Icon; exact?: boolean }[] = [
   { href: "/dashboard/settings", label: "Settings", icon: GearSixIcon },
 ];
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+const ADMIN_ITEM: (typeof ITEMS)[number] = { href: "/dashboard/admin", label: "Admin", icon: ShieldCheckIcon };
+
+export function SidebarNav({ onNavigate, admin }: { onNavigate?: () => void; admin?: boolean }) {
   const pathname = usePathname();
+  const items = admin ? [...ITEMS, ADMIN_ITEM] : ITEMS;
   return (
     <nav className="flex flex-col gap-0.5">
-      {ITEMS.map((it) => {
+      {items.map((it) => {
         const active = it.exact ? pathname === it.href : pathname.startsWith(it.href);
         return (
           <Link

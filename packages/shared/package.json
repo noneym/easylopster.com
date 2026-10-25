@@ -14,7 +14,8 @@
     "./mcp-oauth": "./src/mcp-oauth.ts",
     "./version": "./src/version.ts",
     "./mcp-catalog": "./src/mcp-catalog.ts",
-    "./context": "./src/context.ts"
+    "./context": "./src/context.ts",
+    "./limits": "./src/limits.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

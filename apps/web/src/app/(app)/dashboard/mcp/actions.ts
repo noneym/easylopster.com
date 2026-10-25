@@ -8,7 +8,7 @@ import { connectMcp, isAuthRequiredError, type McpTransport } from "@easylopster
 import { startMcpOAuth as beginOAuth, mcpVendorName, type McpOAuthState } from "@easylopster/shared/mcp-oauth";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 import { newOAuthStateParam, providerFor, readOAuthState } from "@/lib/mcp-oauth";
 
 export type McpFormState =
@@ -81,8 +81,9 @@ export async function testMcp(_prev: McpFormState, formData: FormData): Promise<
 
 export async function createMcp(_prev: McpFormState, formData: FormData): Promise<McpFormState> {
   const user = await requireUser();
+  const limits = limitsFor(user);
   const count = await db.mcpServer.count({ where: { userId: user.id } });
-  if (count >= LIMITS.mcp) return { error: `The beta allows ${LIMITS.mcp} MCP servers per account.` };
+  if (count >= limits.mcp) return { error: `Your account allows ${limits.mcp} MCP servers.` };
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error) };
   const headers = parseHeaders(parsed.data.headers);
@@ -160,8 +161,9 @@ export async function startMcpOAuth(formData: FormData): Promise<void> {
   } else {
     const parsed = oauthSchema.safeParse(Object.fromEntries(formData));
     if (!parsed.success) redirect(`/dashboard/mcp/new?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid form")}`);
+    const limits = limitsFor(user);
     const count = await db.mcpServer.count({ where: { userId: user.id } });
-    if (count >= LIMITS.mcp) redirect(`/dashboard/mcp/new?error=${encodeURIComponent(`The beta allows ${LIMITS.mcp} MCP servers per account.`)}`);
+    if (count >= limits.mcp) redirect(`/dashboard/mcp/new?error=${encodeURIComponent(`Your account allows ${limits.mcp} MCP servers.`)}`);
     row = await db.mcpServer.create({
       data: { userId: user.id, name: parsed.data.name, transport: parsed.data.transport, url: parsed.data.url, authStatus: "pending", status: "unknown" },
       select: { id: true, url: true, encOAuth: true },

@@ -4,6 +4,7 @@ import { db } from "@easylopster/db";
 import { encrypt, pairingCode } from "@easylopster/shared/crypto";
 import { connectMcp, type McpTransport } from "@easylopster/shared/mcp";
 import { env } from "../env.ts";
+import { limitsFor } from "@easylopster/shared/limits";
 
 /**
  * Conversational setup: the same operations the dashboard forms do (MCP servers, nodes, API keys /
@@ -16,10 +17,10 @@ export interface SetupContext {
   conversationId: string;
 }
 
-const LIMITS = {
-  nodes: Number(process.env.BETA_MAX_NODES ?? 2),
-  mcp: Number(process.env.BETA_MAX_MCP ?? 5),
-};
+/** Effective quotas of the bot's owner (admin overrides applied). */
+async function ownerLimits(userId: string) {
+  return limitsFor(await db.user.findUnique({ where: { id: userId }, select: { limitNodes: true, limitMcp: true, limitBots: true, limitMessagesPerDay: true } }));
+}
 const PAIRING_TTL_MS = 15 * 60_000;
 const RELEASES_URL = "https://github.com/noneym/easylopster.com/releases/latest";
 
@@ -89,7 +90,8 @@ export function setupTools(ctx: SetupContext): ToolSet {
         }
         if (action === "add") {
           if (!url || !name) return { error: "name and url are required" };
-          if (servers.length >= LIMITS.mcp) return { error: `The beta allows ${LIMITS.mcp} MCP servers per account.` };
+          const limits = await ownerLimits(ctx.userId);
+          if (servers.length >= limits.mcp) return { error: `This account allows ${limits.mcp} MCP servers.` };
           if (find()) return { error: `A server named ${name} already exists; use link instead.` };
           let probe;
           try {
@@ -146,7 +148,8 @@ export function setupTools(ctx: SetupContext): ToolSet {
         }
         if (action === "pair") {
           if (!name) return { error: "Give the node a name" };
-          if (nodes.length >= LIMITS.nodes) return { error: `The beta allows ${LIMITS.nodes} nodes per account.` };
+          const limits = await ownerLimits(ctx.userId);
+          if (nodes.length >= limits.nodes) return { error: `This account allows ${limits.nodes} nodes.` };
           let code = pairingCode(2, 4);
           for (let i = 0; i < 5 && (await db.node.findUnique({ where: { pairingCode: code } })); i++) code = pairingCode(2, 4);
           const node = await db.node.create({

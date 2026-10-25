@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 import { MCP_CATALOG, MCP_CATALOG_GROUPS, type McpCatalogGroup } from "@easylopster/shared/mcp-catalog";
 
 export const metadata = { title: "MCP servers" };
@@ -18,7 +18,7 @@ export default async function McpPage({ searchParams }: PageProps<"/dashboard/mc
     <>
       <PageHeader
         title="MCP servers"
-        description={`Remote Model Context Protocol servers over HTTP or SSE. ${servers.length} of ${LIMITS.mcp} used.`}
+        description={`Remote Model Context Protocol servers over HTTP or SSE. ${servers.length} of ${limitsFor(user).mcp} used.`}
         action={
           <Link href="/dashboard/mcp/new" className="btn-primary">
             Add server

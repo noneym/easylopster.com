@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { LIMITS } from "@/lib/limits";
+import { limitsFor } from "@/lib/limits";
 
 export const metadata = { title: "Nodes" };
 
@@ -16,7 +16,7 @@ export default async function NodesPage() {
     <>
       <PageHeader
         title="Nodes"
-        description={`Machines and containers that run the node agent and give your bots files and a shell. ${nodes.length} of ${LIMITS.nodes} used.`}
+        description={`Machines and containers that run the node agent and give your bots files and a shell. ${nodes.length} of ${limitsFor(user).nodes} used.`}
         action={
           <Link href="/dashboard/nodes/new" className="btn-primary">
             New node

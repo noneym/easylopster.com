@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ListIcon, XIcon } from "@phosphor-icons/react";
 import { SidebarNav } from "./sidebar-nav";
 
-export function MobileNav() {
+export function MobileNav({ admin }: { admin?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -21,7 +21,7 @@ export function MobileNav() {
                 <XIcon size={18} />
               </button>
             </div>
-            <SidebarNav onNavigate={() => setOpen(false)} />
+            <SidebarNav admin={admin} onNavigate={() => setOpen(false)} />
           </div>
         </div>
       )}
