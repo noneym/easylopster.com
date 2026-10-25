@@ -6,6 +6,8 @@ export interface KeyTestResult {
   message: string;
   /** Model ids the provider reported, when available (used to prefill the model picker). */
   models?: string[];
+  /** Per-model metadata when the listing carries it: { id: { context } } */
+  modelsMeta?: Record<string, { context?: number }>;
 }
 
 const TIMEOUT_MS = 12_000;
@@ -23,6 +25,19 @@ async function get(url: string, headers: Record<string, string>): Promise<{ stat
   } finally {
     clearTimeout(t);
   }
+}
+
+/** Context sizes from listings that carry them (OpenAI-compatible `context_length`, OpenRouter `context_length`, Google `inputTokenLimit`). */
+function metaFrom(body: unknown, path: "data" | "models", idKey = "id"): Record<string, { context?: number }> {
+  const arr = (body as Record<string, unknown> | null)?.[path];
+  const out: Record<string, { context?: number }> = {};
+  if (!Array.isArray(arr)) return out;
+  for (const m of arr as Record<string, unknown>[]) {
+    const id = typeof m[idKey] === "string" ? (m[idKey] as string).replace(/^models\//, "") : null;
+    const ctx = Number(m.context_length ?? m.context_window ?? m.max_context_length ?? m.inputTokenLimit ?? (m.top_provider as Record<string, unknown> | undefined)?.context_length ?? 0);
+    if (id && ctx > 1000) out[id] = { context: ctx };
+  }
+  return out;
 }
 
 function idsFrom(body: unknown, path: "data" | "models", idKey = "id"): string[] {
@@ -61,27 +76,27 @@ export async function testProviderKey(provider: ProviderId, apiKey: string, base
         const r = await get("https://openrouter.ai/api/v1/auth/key", { Authorization: `Bearer ${apiKey}` });
         if (r.status === 200) {
           const list = await get("https://openrouter.ai/api/v1/models", {}).catch(() => null);
-          return { ok: true, message: "Key accepted by OpenRouter.", models: list ? idsFrom(list.body, "data") : undefined };
+          return { ok: true, message: "Key accepted by OpenRouter.", models: list ? idsFrom(list.body, "data") : undefined, modelsMeta: list ? metaFrom(list.body, "data") : undefined };
         }
         if (r.status === 401) return { ok: false, message: "OpenRouter rejected the key (401)." };
         return { ok: false, message: `OpenRouter answered ${r.status}.` };
       }
       case "deepseek": {
         const r = await get(`${(baseUrl || PROVIDERS.deepseek.defaultBaseUrl!).replace(/\/$/, "")}/models`, { Authorization: `Bearer ${apiKey}` });
-        if (r.status === 200) return { ok: true, message: "Key accepted by DeepSeek.", models: idsFrom(r.body, "data") };
+        if (r.status === 200) return { ok: true, message: "Key accepted by DeepSeek.", models: idsFrom(r.body, "data"), modelsMeta: metaFrom(r.body, "data") };
         if (r.status === 401) return { ok: false, message: "DeepSeek rejected the key (401)." };
         return { ok: false, message: `DeepSeek answered ${r.status}.` };
       }
       case "google": {
         const r = await get(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(apiKey)}`, {});
-        if (r.status === 200) return { ok: true, message: "Key accepted by Google.", models: idsFrom(r.body, "models", "name").filter((m) => m.startsWith("gemini")) };
+        if (r.status === 200) return { ok: true, message: "Key accepted by Google.", models: idsFrom(r.body, "models", "name").filter((m) => m.startsWith("gemini")), modelsMeta: metaFrom(r.body, "models", "name") };
         if (r.status === 400 || r.status === 403) return { ok: false, message: `Google rejected the key (${r.status}).` };
         return { ok: false, message: `Google answered ${r.status}.` };
       }
       case "openai-compatible": {
         if (!baseUrl) return { ok: false, message: "A base URL is required for OpenAI-compatible endpoints." };
         const r = await get(`${baseUrl.replace(/\/$/, "")}/models`, apiKey ? { Authorization: `Bearer ${apiKey}` } : {});
-        if (r.status === 200) return { ok: true, message: "Endpoint answered.", models: idsFrom(r.body, "data") };
+        if (r.status === 200) return { ok: true, message: "Endpoint answered.", models: idsFrom(r.body, "data"), modelsMeta: metaFrom(r.body, "data") };
         if (r.status === 401) return { ok: false, message: "Endpoint rejected the key (401)." };
         return { ok: false, message: `Endpoint answered ${r.status}.` };
       }

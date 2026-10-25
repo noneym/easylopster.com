@@ -6,6 +6,15 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Context-window awareness: the key test stores each model's context size when the provider lists
+  it (OpenAI-compatible endpoints, OpenRouter, Google); other models come from a built-in table
+  (default 128k). History and compaction budgets now scale with the window (about 55% of it for
+  history, compaction at ~70% of that), a context-length error triggers an automatic compaction
+  and one retry, and a gauge shows usage: web chat footer ("context 42% · 108k / 256k", with a
+  nudge past 80%), Telegram /status, and the model picker lists sizes next to ids.
+- Evernote and Notion in the MCP catalog, marked OAuth-only (needs MCP OAuth support, not available yet).
+
 ### Fixed
 - A development gateway sharing the production database ran everyone's automations and dreaming
   on the developer's machine (wrong workspace, no nodes) and messaged the owners; `GATEWAY_ACCOUNT_EMAILS`

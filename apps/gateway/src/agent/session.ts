@@ -1,8 +1,7 @@
 import { db, type Conversation, type Message } from "@easylopster/db";
 import type { ModelMessage } from "ai";
+import { estimateTokens, historyBudgetTokens, DEFAULT_CONTEXT_WINDOW } from "@easylopster/shared/context";
 
-/** Approximate token budget for history (chars/4). */
-const HISTORY_CHAR_BUDGET = 48_000;
 const COMPACT_AFTER_MESSAGES = 60;
 const KEEP_RECENT_ON_COMPACT = 20;
 
@@ -25,19 +24,20 @@ export async function archiveConversation(botId: string, sessionKey: string): Pr
   return true;
 }
 
-/** Converts stored messages into model messages, newest-last, within the char budget. */
-export async function loadHistory(conversation: Conversation): Promise<ModelMessage[]> {
+/** Converts stored messages into model messages, newest-last, within a token budget derived from the model's context window. */
+export async function loadHistory(conversation: Conversation, contextWindow = DEFAULT_CONTEXT_WINDOW): Promise<ModelMessage[]> {
+  const budget = historyBudgetTokens(contextWindow);
   const rows = await db.message.findMany({
     where: { conversationId: conversation.id, role: { in: ["user", "assistant"] } },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: 400,
   });
   const picked: Message[] = [];
-  let chars = 0;
+  let tokens = 0;
   for (const r of rows) {
-    const len = (r.text ?? JSON.stringify(r.content)).length;
-    if (chars + len > HISTORY_CHAR_BUDGET && picked.length > 2) break;
-    chars += len;
+    const len = estimateTokens(r.text ?? JSON.stringify(r.content));
+    if (tokens + len > budget && picked.length > 2) break;
+    tokens += len;
     picked.push(r);
   }
   picked.reverse();
@@ -65,9 +65,15 @@ export async function saveMessage(conversationId: string, data: Omit<Parameters<
  * Cheap compaction: when a conversation grows past the threshold, fold everything but the most
  * recent messages into the summary using the same model, then delete the folded rows.
  */
-export async function maybeCompact(conversation: Conversation, summarize: (text: string) => Promise<string>, force = false): Promise<void> {
+export async function maybeCompact(conversation: Conversation, summarize: (text: string) => Promise<string>, force = false, contextWindow = DEFAULT_CONTEXT_WINDOW): Promise<void> {
   const count = await db.message.count({ where: { conversationId: conversation.id } });
-  if (!force && count < COMPACT_AFTER_MESSAGES) return;
+  if (!force && count < COMPACT_AFTER_MESSAGES) {
+    // Fewer messages than the count threshold, but maybe very long ones: compact when the stored
+    // history is past ~70% of what fits in this model's window.
+    const recent = await db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: "desc" }, take: 400, select: { text: true } });
+    const tokens = recent.reduce((n, m) => n + estimateTokens(m.text ?? ""), 0);
+    if (tokens < historyBudgetTokens(contextWindow) * 0.7 || count <= KEEP_RECENT_ON_COMPACT + 4) return;
+  }
   if (force && count <= 4) return;
   const rows = await db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: "asc" } });
   const old = rows.slice(0, rows.length - (force ? 4 : KEEP_RECENT_ON_COMPACT));

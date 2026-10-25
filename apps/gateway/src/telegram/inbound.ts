@@ -1,4 +1,5 @@
 import { db, type Bot, type ProviderKey } from "@easylopster/db";
+import { contextWindowFor, formatTokens, type ModelsMeta } from "@easylopster/shared/context";
 import { decrypt, pairingCode } from "@easylopster/shared/crypto";
 import { TelegramSender } from "./api.ts";
 import { runAgent } from "../agent/run.ts";
@@ -228,9 +229,13 @@ async function handleCommand(bot: BotFull, m: TgMessage, cmd: string, args: stri
     case "status": {
       const conv = await db.conversation.findUnique({ where: { botId_sessionKey: { botId: bot.id, sessionKey } }, include: { _count: { select: { messages: true } } } });
       const model = conv?.modelOverride || bot.model || bot.providerKey?.defaultModel || "none";
+      const win = contextWindowFor(model, (bot.providerKey?.modelsMeta ?? null) as ModelsMeta | null);
+      const used = conv?.lastInputTokens ?? 0;
+      const pct = Math.min(100, Math.round((used / win.tokens) * 100));
+      const ctxLine = `Context: ${formatTokens(win.tokens)} window${used ? ` · ${pct}% used (${formatTokens(used)} on the last turn)${pct >= 80 ? " · getting full, /compact or /new" : ""}` : ""}`;
       await tg.sendMarkdown(
         chatId,
-        `**${bot.agentName || bot.name}**\nModel: \`${bot.providerKey?.provider ?? "?"}/${model}\`\nThinking: ${bot.thinking}\nSession: \`${sessionKey}\` (${conv?._count.messages ?? 0} messages${conv?.summary ? ", compacted" : ""})\nStreaming: ${bot.streaming}`,
+        `**${bot.agentName || bot.name}**\nModel: \`${bot.providerKey?.provider ?? "?"}/${model}\`\nThinking: ${bot.thinking}\n${ctxLine}\nSession: \`${sessionKey}\` (${conv?._count.messages ?? 0} messages${conv?.summary ? ", compacted" : ""})\nStreaming: ${bot.streaming}`,
         opts,
       );
       return true;

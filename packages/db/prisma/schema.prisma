@@ -75,6 +75,8 @@ model ProviderKey {
   lastTestMsg  String?   @db.VarChar(512)
   /// Model ids reported by the provider on the last successful test
   modelsCache  Json?
+  /// Per-model metadata reported by the provider on the last test: { "<id>": { context: 256000 } }
+  modelsMeta   Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -284,6 +286,10 @@ model Conversation {
   /// Summary produced by compaction; prepended to history when set
   summary       String?   @db.Text
   compactedAt   DateTime?
+  /// Input tokens of the last model call (system prompt + tools + history), for the context gauge
+  lastInputTokens Int?
+  /// Context window (tokens) of the model used on the last call
+  contextWindow   Int?
   /// Set when /new or /reset archived this conversation (sessionKey gets a suffix)
   archivedAt    DateTime?
   /// Per-conversation model override (/model command), null = bot default

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PROVIDERS, type ProviderId } from "@easylopster/shared/providers";
+import { contextWindowFor, type ModelsMeta } from "@easylopster/shared/context";
 import { PageHeader } from "@/components/app/page-header";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -146,6 +147,12 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
               label: `${k.label} (${PROVIDERS[k.provider as ProviderId]?.label ?? k.provider})`,
               defaultModel: k.defaultModel,
               models: (Array.isArray(k.modelsCache) ? (k.modelsCache as string[]) : null) ?? PROVIDERS[k.provider as ProviderId]?.models.map((m) => m.id) ?? [],
+              contexts: Object.fromEntries(
+                ((Array.isArray(k.modelsCache) ? (k.modelsCache as string[]) : null) ?? PROVIDERS[k.provider as ProviderId]?.models.map((m) => m.id) ?? []).map((id) => [
+                  id,
+                  contextWindowFor(id, (k.modelsMeta ?? null) as ModelsMeta | null).tokens,
+                ]),
+              ),
             }))}
           />
 

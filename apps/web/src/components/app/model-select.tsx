@@ -13,6 +13,7 @@ export function ModelSelect({
   value,
   onChange,
   required,
+  contexts,
 }: {
   name: string;
   id: string;
@@ -20,7 +21,10 @@ export function ModelSelect({
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  /** Optional context sizes per model id, shown next to the id. */
+  contexts?: Record<string, number>;
 }) {
+  const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M` : `${Math.round(n / 1000)}k`);
   const listed = models.includes(value);
   const [custom, setCustom] = useState(!listed && value !== "");
   const useCustom = custom || models.length === 0;
@@ -67,6 +71,7 @@ export function ModelSelect({
       {models.map((m) => (
         <option key={m} value={m}>
           {m}
+          {contexts?.[m] ? ` · ${fmt(contexts[m]!)}` : ""}
         </option>
       ))}
       <option value="__custom__">Other…</option>

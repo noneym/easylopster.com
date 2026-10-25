@@ -5,7 +5,7 @@ import { updateBot, type BotFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
 import { ModelTestButton } from "@/components/app/model-test-button";
 
-type KeyOpt = { id: string; label: string; defaultModel: string; models: string[] };
+type KeyOpt = { id: string; label: string; defaultModel: string; models: string[]; contexts?: Record<string, number> };
 type BotValues = {
   id: string;
   name: string;
@@ -79,7 +79,7 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
             </select>
           </Field>
           <Field label="Model" htmlFor="model" error={fe.model}>
-            <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} required />
+            <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} required contexts={key?.contexts} />
             <ModelTestButton keyId={keyId} model={model} />
           </Field>
           <Field label="Thinking" htmlFor="thinking" help="Extended reasoning where the model supports it.">

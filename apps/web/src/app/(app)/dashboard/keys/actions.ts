@@ -65,6 +65,7 @@ export async function createKey(_prev: KeyFormState, formData: FormData): Promis
       lastTestOk: true,
       lastTestMsg: test.message,
       modelsCache: test.models?.length ? test.models.slice(0, 500) : undefined,
+      modelsMeta: test.modelsMeta && Object.keys(test.modelsMeta).length ? test.modelsMeta : undefined,
     },
   });
   revalidatePath("/dashboard/keys");
@@ -83,6 +84,7 @@ export async function retestKey(id: string) {
       lastTestOk: r.ok,
       lastTestMsg: r.message.slice(0, 500),
       ...(r.ok && r.models?.length ? { modelsCache: r.models.slice(0, 500) } : {}),
+      ...(r.ok && r.modelsMeta && Object.keys(r.modelsMeta).length ? { modelsMeta: r.modelsMeta } : {}),
     },
   });
   revalidatePath(`/dashboard/keys/${id}`);

@@ -14,6 +14,8 @@ export default async function BotChatPage({ params, searchParams }: PageProps<"/
   const bot = await db.bot.findFirst({ where: { id, userId: user.id }, select: { id: true, name: true, agentName: true, model: true, providerKeyId: true } });
   if (!bot) notFound();
   const { conversationId, messages } = await ensureWebConversation(bot.id);
+  const gauge = await db.conversation.findUnique({ where: { id: conversationId }, select: { lastInputTokens: true, contextWindow: true } });
+  const initialContext = gauge?.lastInputTokens && gauge.contextWindow ? { used: gauge.lastInputTokens, window: gauge.contextWindow } : null;
   // Earlier web sessions of this owner (archived with /new or "New session"); newest first.
   const sessions = await db.conversation.findMany({
     where: { botId: bot.id, kind: "web", sessionKey: { startsWith: `web:${bot.id}:${user.id}` } },
@@ -72,7 +74,7 @@ export default async function BotChatPage({ params, searchParams }: PageProps<"/
           {!bot.providerKeyId ? (
             <p className="py-8 text-sm text-fg-muted">This bot has no API key. Assign one in settings first.</p>
           ) : (
-            <ChatClient botId={bot.id} conversationId={conversationId} initial={kickoff ? [{ id: "kickoff", role: "user", text: "Hi! I just created you." }] : messages} initialBusy={kickoff} />
+            <ChatClient botId={bot.id} conversationId={conversationId} initial={kickoff ? [{ id: "kickoff", role: "user", text: "Hi! I just created you." }] : messages} initialBusy={kickoff} initialContext={initialContext} />
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import { buildRuntimeContext, buildSystemPrompt } from "./prompt.ts";
 import { builtinTools } from "./tools.ts";
 import { Workspace } from "../workspace/fs.ts";
 import { loadHistory, maybeCompact, saveMessage, SUMMARIZE_INSTRUCTIONS } from "./session.ts";
+import { contextWindowFor, isContextLengthError, type ModelsMeta } from "@easylopster/shared/context";
 import { recordUsage } from "./usage.ts";
 import { redis } from "../redis.ts";
 import { abortKey } from "./pubsub.ts";
@@ -54,6 +55,8 @@ export interface RunInput {
   ephemeralUser?: boolean;
   /** How many automatic continuations already happened for this user turn. */
   continuation?: number;
+  /** Set on the retry after an automatic compaction (context-length error). */
+  retriedAfterCompact?: boolean;
 }
 
 export interface RunOutput {
@@ -67,6 +70,8 @@ export interface RunOutput {
   toolCalls: number;
   /** The step budget ended the run while the model still wanted to call tools. */
   cutOff: boolean;
+  /** Context gauge: input tokens of the last call vs the model's window. */
+  context: { used: number; window: number };
 }
 
 /** Tool-call steps per model turn (OpenClaw-sized budget); env MAX_STEPS overrides. */
@@ -94,6 +99,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   if (!bot.providerKey) throw new Error("This bot has no API key assigned. Add one in the dashboard.");
   const modelId = conversation.modelOverride || bot.model || bot.providerKey.defaultModel;
   const resolved = resolveModel(bot.providerKey, modelId, conversation.thinkingOverride ?? bot.thinking);
+  const contextWindow = contextWindowFor(modelId, bot.providerKey.modelsMeta as ModelsMeta | null).tokens;
   const depth = input.depth ?? 0;
   const timezone = bot.user.timezone || "UTC";
 
@@ -176,7 +182,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     timezone,
   });
 
-  const history = await loadHistory(conversation);
+  const history = await loadHistory(conversation, contextWindow);
   const messages: ModelMessage[] = [
     ...history,
     {
@@ -231,6 +237,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   let tokensOut = 0;
   let error: string | undefined;
   let cutOff = false;
+  let lastStepInputTokens = 0;
 
   try {
     const result = streamText({
@@ -274,6 +281,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     tokensIn = usage?.inputTokens ?? 0;
     tokensOut = usage?.outputTokens ?? 0;
     const steps = await Promise.resolve(result.steps).catch(() => []);
+    lastStepInputTokens = steps[steps.length - 1]?.usage?.inputTokens ?? 0;
     cutOff = steps.length >= MAX_STEPS && steps[steps.length - 1]?.finishReason === "tool-calls";
     console.log(`[run] ${new Date().toISOString()} bot=${bot.id} steps=${steps.length} finish=${steps[steps.length - 1]?.finishReason ?? "?"} cutOff=${cutOff} continuation=${input.continuation ?? 0} textChars=${text.length}`);
   } catch (err) {
@@ -290,6 +298,18 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   }
 
   if (error && error !== "stopped" && !text.trim()) {
+    // Context overflow: fold the history into the summary and run the same turn once more.
+    if (isContextLengthError(error) && !input.retriedAfterCompact) {
+      console.log(`[run] ${new Date().toISOString()} bot=${bot.id} context length exceeded (${contextWindow} window); compacting and retrying`);
+      if (userRow) await db.message.delete({ where: { id: userRow.id } }).catch(() => {});
+      await maybeCompact(
+        conversation,
+        async (transcript) => (await generateText({ model: resolved.model, system: SUMMARIZE_INSTRUCTIONS, prompt: transcript.slice(0, 120_000), maxRetries: 1 })).text,
+        true,
+        contextWindow,
+      ).catch(() => {});
+      return runAgent({ ...input, retriedAfterCompact: true });
+    }
     if (userRow) await db.message.update({ where: { id: userRow.id }, data: { error: error.slice(0, 1000) } });
     throw new Error(error);
   }
@@ -309,15 +329,24 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
   });
 
   await recordUsage(bot.userId, bot.id, { messages: 1, tokensIn, tokensOut, toolCalls });
+  // Context gauge for /status and the web chat header: the last call's input size is the live "used" value.
+  const lastInput = lastStepInputTokens || tokensIn;
+  await db.conversation.update({ where: { id: conversation.id }, data: { lastInputTokens: lastInput, contextWindow } }).catch(() => {});
 
   // Fire-and-forget compaction with the same model; durable notes are flushed to memory first (OpenClaw pre-compaction flush).
-  void maybeCompact(conversation, async (transcript) => {
-    await memoryFlush(ws, resolved.model, transcript, timezone).catch(() => false);
-    const r = await generateText({ model: resolved.model, system: SUMMARIZE_INSTRUCTIONS, prompt: transcript, maxRetries: 1 });
-    return r.text;
-  }).catch(() => {});
+  void maybeCompact(
+    conversation,
+    async (transcript) => {
+      await memoryFlush(ws, resolved.model, transcript, timezone).catch(() => false);
+      const r = await generateText({ model: resolved.model, system: SUMMARIZE_INSTRUCTIONS, prompt: transcript, maxRetries: 1 });
+      return r.text;
+    },
+    false,
+    contextWindow,
+  ).catch(() => {});
 
-  const out: RunOutput = { text: finalText, media: extracted.media, silent: silent || (!finalText && extracted.media.length === 0), messageId: assistantRow.id, tokensIn, tokensOut, toolCalls, cutOff };
+  const context = { used: lastInput, window: contextWindow };
+  const out: RunOutput = { text: finalText, media: extracted.media, silent: silent || (!finalText && extracted.media.length === 0), messageId: assistantRow.id, tokensIn, tokensOut, toolCalls, cutOff, context };
 
   // Cut off mid-task: keep going in a continuation turn (the partial reply is already saved as history).
   const continuation = input.continuation ?? 0;
@@ -342,6 +371,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
       tokensOut: tokensOut + next.tokensOut,
       toolCalls: toolCalls + next.toolCalls,
       cutOff: next.cutOff,
+      context: next.context,
     };
   }
   return out;

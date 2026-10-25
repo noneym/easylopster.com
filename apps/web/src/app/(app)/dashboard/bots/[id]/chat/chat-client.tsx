@@ -8,7 +8,8 @@ import { Markdown } from "@/components/app/markdown";
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
 type Approval = { id: string; target?: string; preview?: string; status: string; canAlways?: boolean };
 
-export function ChatClient({ botId, conversationId: initialConv, initial, initialBusy = false }: { botId: string; conversationId: string; initial: Msg[]; initialBusy?: boolean }) {
+export function ChatClient({ botId, conversationId: initialConv, initial, initialBusy = false, initialContext }: { botId: string; conversationId: string; initial: Msg[]; initialBusy?: boolean; initialContext?: { used: number; window: number } | null }) {
+  const [context, setContext] = useState(initialContext ?? null);
   const [conversationId, setConversationId] = useState(initialConv);
   const [messages, setMessages] = useState<Msg[]>(initial);
   const [draft, setDraft] = useState("");
@@ -25,7 +26,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
     const es = new EventSource(`/api/chat/${conversationId}/stream`);
     esRef.current = es;
     es.onmessage = (e) => {
-      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string; canAlways?: boolean };
+      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string; canAlways?: boolean; context?: { used: number; window: number } };
       if (ev.type === "delta") {
         setStreamText(ev.text ?? "");
       } else if (ev.type === "approval" && ev.id) {
@@ -37,6 +38,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
       } else if (ev.type === "tool") {
         setTool(ev.status === "start" ? ev.name ?? "tool" : null);
       } else if (ev.type === "final") {
+        if (ev.context) setContext(ev.context);
         const final: Msg = { id: ev.messageId ?? `m-${Date.now()}`, role: "assistant", text: ev.text ?? "" };
         setMessages((prev) => (prev.some((m) => m.id === final.id) || !ev.text ? prev : [...prev, final]));
         setStreamText("");
@@ -219,6 +221,33 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
           New session
         </button>
       </form>
+      {context && context.window > 0 && <ContextGauge used={context.used} window={context.window} onCompact={reset} />}
     </>
+  );
+}
+
+/** "Context 42% · 108k / 256k" with a nudge once the window is getting full. */
+function ContextGauge({ used, window: win, onCompact }: { used: number; window: number; onCompact: () => void }) {
+  const pct = Math.min(100, Math.round((used / win) * 100));
+  const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+  const hot = pct >= 80;
+  return (
+    <div className="flex items-center gap-3 pb-3 text-xs text-fg-muted">
+      <span className="font-mono">
+        context {pct}% · {fmt(used)} / {fmt(win)}
+      </span>
+      <span className="h-1.5 w-28 rounded-full bg-bg-sunk overflow-hidden" aria-hidden>
+        <span className={`block h-full ${hot ? "bg-accent" : "bg-fg-faint"}`} style={{ width: `${pct}%` }} />
+      </span>
+      {hot && (
+        <span>
+          Getting full; the bot compacts automatically, or{" "}
+          <button type="button" onClick={onCompact} className="underline underline-offset-4 hover:text-fg">
+            start a new session
+          </button>
+          .
+        </span>
+      )}
+    </div>
   );
 }

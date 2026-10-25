@@ -12,7 +12,8 @@
     "./markdown": "./src/markdown.ts",
     "./mcp": "./src/mcp.ts",
     "./version": "./src/version.ts",
-    "./mcp-catalog": "./src/mcp-catalog.ts"
+    "./mcp-catalog": "./src/mcp-catalog.ts",
+    "./context": "./src/context.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
