@@ -35,7 +35,7 @@ export async function runAutomationJob(bot: BotFull, automationId: string, nodes
   const conversation = await getOrCreateConversation(bot.id, sessionKey, isolated || !tg ? "web" : "dm", { title: isolated ? `Automation: ${a.name}` : undefined, tgChatId: bot.ownerTgChatId ?? undefined });
   const tz = bot.user.timezone || "UTC";
   const now = new Intl.DateTimeFormat("en-GB", { timeZone: tz, dateStyle: "medium", timeStyle: "short" }).format(new Date());
-  const userText = `[easylopster cron wake] Automation "${a.name}" (${schedule ? scheduleSummary(schedule) : "manual"}) fired at ${now} ${tz}.\n${a.prompt}`;
+  const userText = `[easylopster cron wake] Automation "${a.name}" (${schedule ? scheduleSummary(schedule) : "manual"}) fired at ${now} ${tz}.\n${a.prompt}\n\nIf nothing needs the owner's attention, reply with exactly NO_REPLY and nothing else (no other marker, no explanation). Otherwise write only what the owner should read.`;
 
   try {
     const out = await runAgent({

@@ -10,6 +10,8 @@ All notable changes to easylopster are documented here. The format follows
 - A development gateway sharing the production database ran everyone's automations and dreaming
   on the developer's machine (wrong workspace, no nodes) and messaged the owners; `GATEWAY_ACCOUNT_EMAILS`
   now scopes polling, the automation scheduler and dreaming to the listed accounts.
+- Automation replies that are just a status marker (NO_NEW_POST, NOTHING_NEW, ... on one line) are
+  logged as silent instead of being sent to the owner; the wake message now spells out the NO_REPLY rule.
 - A reply ending in a NO_REPLY line is delivered without that line; a reply that is only NO_REPLY
   (with or without punctuation) stays silent.
 

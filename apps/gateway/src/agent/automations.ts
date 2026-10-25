@@ -118,7 +118,10 @@ export async function ownerActiveRecently(botId: string): Promise<boolean> {
 /** Heartbeat semantics: HEARTBEAT_OK is stripped; a short ack is silent. */
 export function automationReplyIsSilent(text: string): { silent: boolean; text: string } {
   const stripped = text.replace(/\bHEARTBEAT_OK\b/g, "").trim();
-  if (!stripped || stripped.toUpperCase() === "NO_REPLY") return { silent: true, text: "" };
+  if (!stripped || /^NO_REPLY[.!]?$/i.test(stripped)) return { silent: true, text: "" };
+  // Models invent their own "nothing happened" markers (NO_NEW_POST, NOTHING_NEW, ALL_QUIET — sessiz kalıyorum).
+  // A one-line reply that starts with such a token is a status ack for the log, not a message for the owner.
+  if (!stripped.includes("\n") && stripped.length <= 120 && /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+[.!]?(?:\s*[—–:-]\s*.{0,60})?$/.test(stripped)) return { silent: true, text: stripped };
   if (text.includes(HEARTBEAT_TOKEN) && stripped.length <= HEARTBEAT_ACK_MAX_CHARS) return { silent: true, text: stripped };
   return { silent: false, text: stripped };
 }
