@@ -34,6 +34,10 @@ let status: AgentStatus = { state: "stopped", since: Date.now() };
 const logs: string[] = [];
 // Dev runs (`electron .`) must never touch the installed app's config (~/.easylopster/node.json):
 // they get their own file unless EASYLOPSTER_CONFIG says otherwise.
+// Dev runs keep their own data folder (settings, logs, Brave profile) and their own single-instance lock,
+// so `electron .` can run next to the installed app without stealing its lock or settings.
+if (!app.isPackaged && !process.env.EASYLOPSTER_USERDATA_SHARED) app.setPath("userData", `${app.getPath("userData")}-dev`);
+
 const configPath = process.env.EASYLOPSTER_CONFIG ?? (app.isPackaged ? defaultConfigPath() : path.join(app.getPath("userData"), "node.dev.json"));
 const settingsPath = () => path.join(app.getPath("userData"), "desktop.json");
 const logPath = () => path.join(app.getPath("userData"), "node.log");

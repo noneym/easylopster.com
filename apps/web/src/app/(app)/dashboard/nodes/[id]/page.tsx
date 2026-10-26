@@ -23,6 +23,10 @@ const CAP_LABELS: Record<string, string> = {
   "browser.type": "Browser: type",
   "browser.screenshot": "Browser: screenshots",
   "browser.tabs": "Browser: list/close tabs",
+  "browser.eval": "Browser: run JavaScript",
+  "browser.interact": "Browser: keys, scroll, hover, select, back/forward, wait",
+  "browser.html": "Browser: read HTML",
+  "browser.pdf": "Browser: save as PDF",
 };
 
 export default async function NodeDetailPage({ params }: PageProps<"/dashboard/nodes/[id]">) {

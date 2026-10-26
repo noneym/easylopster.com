@@ -230,6 +230,14 @@ export class BrowserController {
         return this.screenshot(p.tabId ? String(p.tabId) : undefined, !!p.fullPage);
       case "browser.tabs":
         return this.tabsCmd(String(p.action ?? "list"), p.tabId ? String(p.tabId) : undefined);
+      case "browser.eval":
+        return this.eval(String(p.expression ?? ""), p.tabId ? String(p.tabId) : undefined);
+      case "browser.interact":
+        return this.interact(String(p.action ?? ""), p, p.tabId ? String(p.tabId) : undefined);
+      case "browser.html":
+        return this.html(p.tabId ? String(p.tabId) : undefined, p.target ? String(p.target) : undefined);
+      case "browser.pdf":
+        return this.pdf(p.tabId ? String(p.tabId) : undefined);
       default:
         throw new Error(`Unsupported method ${method}`);
     }
@@ -421,8 +429,10 @@ export class BrowserController {
       if (!t) throw new Error(`Unknown tab ${tabId}. Call browser.tabs to list open tabs.`);
       return t;
     }
-    if (this.tabs.size === 0) await this.refreshTargets();
-    const last = [...this.tabs.values()].at(-1);
+    // Default tab: the most recent one that is not blank (a stray about:blank tab must not swallow commands).
+    const pages = await this.refreshTargets();
+    const usable = [...pages].reverse().find((p) => p.url && p.url !== "about:blank") ?? pages.at(-1);
+    const last = usable ? this.byTarget.get(usable.targetId) : undefined;
     if (last) return last;
     const { targetId } = await this.send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
     return this.byTarget.get(targetId) ?? this.register(targetId);
@@ -583,8 +593,178 @@ export class BrowserController {
     return { tabs: await this.listTabs() };
   }
 
+  // ───────────────────────── full-control extras ─────────────────────────
+  /** Run JavaScript in the page; the awaited result comes back JSON-serialised (truncated at 20k chars). */
+  async eval(expression: string, tabId?: string) {
+    if (!expression.trim()) throw new Error("expression is required");
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    const value = await this.evaluate<unknown>(sid, `(async () => { const __r = (${"\n"}${expression}${"\n"}); return await __r; })()`).catch(async (err) => {
+      // Statements (not an expression): run as a function body.
+      if (/Unexpected token|Unexpected end|Missing initializer/i.test(String(err))) return this.evaluate<unknown>(sid, `(async () => { ${expression} })()`);
+      throw err;
+    });
+    let text = typeof value === "string" ? value : JSON.stringify(value ?? null);
+    const truncated = text.length > 20_000;
+    if (truncated) text = text.slice(0, 20_000);
+    this.opts.log(`browser: eval ${expression.slice(0, 60).replace(/\s+/g, " ")} on ${t.tabId}`);
+    const info = await this.pageInfo(sid).catch(() => ({ url: "", title: "" }));
+    return { tabId: t.tabId, result: text, truncated, ...info };
+  }
+
+  /** Keyboard, scrolling, hover, select boxes, history navigation and waiting. */
+  async interact(action: string, p: Record<string, unknown>, tabId?: string) {
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    switch (action) {
+      case "press": {
+        const key = String(p.key ?? "");
+        const def = KEYS[key] ?? (key.length === 1 ? { code: `Key${key.toUpperCase()}`, vk: key.toUpperCase().charCodeAt(0), text: key } : null);
+        if (!def) throw new Error(`Unknown key ${key}. Use Enter, Tab, Escape, Backspace, Delete, ArrowUp/Down/Left/Right, Home, End, PageUp, PageDown, Space, F1-F12 or a single character.`);
+        const mods = (p.modifiers as string[] | undefined) ?? [];
+        const modifiers = (mods.includes("alt") ? 1 : 0) | (mods.includes("ctrl") ? 2 : 0) | (mods.includes("meta") ? 4 : 0) | (mods.includes("shift") ? 8 : 0);
+        if (p.target) {
+          const loc = await this.locate(sid, String(p.target));
+          await this.mouseClick(sid, loc.x, loc.y);
+          await sleep(80);
+        }
+        const base = { key, code: def.code, windowsVirtualKeyCode: def.vk, modifiers };
+        await this.send("Input.dispatchKeyEvent", { type: def.text ? "keyDown" : "rawKeyDown", ...base, ...(def.text ? { text: def.text, unmodifiedText: def.text } : {}) }, sid);
+        await this.send("Input.dispatchKeyEvent", { type: "keyUp", ...base }, sid);
+        await this.waitForLoad(t, 5000);
+        this.opts.log(`browser: press ${mods.length ? mods.join("+") + "+" : ""}${key} on ${t.tabId}`);
+        return { tabId: t.tabId, pressed: key, ...(await this.pageInfo(sid)) };
+      }
+      case "scroll": {
+        if (p.target) {
+          await this.evaluate(sid, LOCATE_SCRIPT(String(p.target)));
+          await sleep(200);
+        } else if (p.y != null) await this.evaluate(sid, `window.scrollTo(0, ${Math.max(0, Number(p.y))})`);
+        else {
+          const dir = String(p.direction ?? "down");
+          const amount = Number(p.amount ?? 0) || 0;
+          const expr = dir === "top" ? "window.scrollTo(0, 0)" : dir === "bottom" ? "window.scrollTo(0, document.documentElement.scrollHeight)" : dir === "up" ? `window.scrollBy(0, -${amount || "window.innerHeight * 0.8"})` : `window.scrollBy(0, ${amount || "window.innerHeight * 0.8"})`;
+          await this.evaluate(sid, expr);
+        }
+        await sleep(250);
+        const pos = await this.evaluate<{ y: number; max: number }>(sid, "({ y: Math.round(window.scrollY), max: Math.round(document.documentElement.scrollHeight - window.innerHeight) })");
+        return { tabId: t.tabId, scrollY: pos.y, maxScrollY: Math.max(0, pos.max) };
+      }
+      case "hover": {
+        const loc = await this.locate(sid, String(p.target ?? ""));
+        await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: loc.x, y: loc.y }, sid);
+        await sleep(250);
+        return { tabId: t.tabId, hovered: { tag: loc.tag, text: loc.text } };
+      }
+      case "select": {
+        const target = String(p.target ?? "");
+        const r = await this.evaluate<{ error?: string; value?: string; label?: string; options?: string[] }>(sid, SELECT_SCRIPT(target, p.value != null ? String(p.value) : undefined, p.label != null ? String(p.label) : undefined));
+        if (r.error) throw new Error(r.error);
+        await this.waitForLoad(t, 3000);
+        this.opts.log(`browser: select ${r.label ?? r.value} in ${target} on ${t.tabId}`);
+        return { tabId: t.tabId, selected: { value: r.value, label: r.label }, ...(await this.pageInfo(sid)) };
+      }
+      case "back":
+      case "forward":
+      case "reload": {
+        t.loading = true;
+        if (action === "reload") await this.send("Page.reload", { ignoreCache: !!p.hard }, sid);
+        else await this.evaluate(sid, action === "back" ? "history.back()" : "history.forward()");
+        await this.waitForLoad(t, 20_000);
+        return { tabId: t.tabId, ...(await this.pageInfo(sid)) };
+      }
+      case "wait": {
+        const timeout = Math.min(Math.max(Number(p.timeoutMs ?? 10_000), 500), 60_000);
+        const deadline = Date.now() + timeout;
+        const target = p.target ? String(p.target) : "";
+        const text = p.text ? String(p.text) : "";
+        if (!target && !text) {
+          await sleep(Math.min(timeout, 10_000));
+          return { tabId: t.tabId, waited: Math.min(timeout, 10_000), ...(await this.pageInfo(sid)) };
+        }
+        while (Date.now() < deadline) {
+          const found = await this.evaluate<boolean>(sid, WAIT_SCRIPT(target, text)).catch(() => false);
+          if (found) return { tabId: t.tabId, found: true, ...(await this.pageInfo(sid)) };
+          await sleep(250);
+        }
+        return { tabId: t.tabId, found: false, error: `Timed out after ${timeout}ms waiting for ${target || JSON.stringify(text)}`, ...(await this.pageInfo(sid)) };
+      }
+      default:
+        throw new Error(`Unknown browser action ${action}`);
+    }
+  }
+
+  /** Raw HTML of the page or of one element (truncated at 60k chars). */
+  async html(tabId?: string, target?: string) {
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    const html = await this.evaluate<string>(sid, target ? `(() => { ${FIND_ONE(target)} return el ? el.outerHTML : ""; })()` : "document.documentElement.outerHTML");
+    if (target && !html) throw new Error(`No element matches ${target}`);
+    const truncated = html.length > 60_000;
+    return { tabId: t.tabId, html: truncated ? html.slice(0, 60_000) : html, truncated, length: html.length, ...(await this.pageInfo(sid)) };
+  }
+
+  /** Print the page to PDF under the node workspace inbox/. */
+  async pdf(tabId?: string) {
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    const { data } = await this.send<{ data: string }>("Page.printToPDF", { printBackground: true, preferCSSPageSize: true }, sid);
+    const dir = path.join(this.opts.workspace(), "inbox");
+    await mkdir(dir, { recursive: true });
+    const name = `browser-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
+    await writeFile(path.join(dir, name), Buffer.from(data, "base64"));
+    this.opts.log(`browser: pdf ${t.tabId} -> inbox/${name}`);
+    return { tabId: t.tabId, path: `inbox/${name}`, mimeType: "application/pdf", bytes: Math.floor((data.length * 3) / 4), data, ...(await this.pageInfo(sid)) };
+  }
+
   private async listTabs() {
     const pages = await this.refreshTargets();
     return pages.map((p) => ({ tabId: this.byTarget.get(p.targetId)!.tabId, url: p.url, title: p.title }));
   }
+}
+
+const KEYS: Record<string, { code: string; vk: number; text?: string }> = {
+  Enter: { code: "Enter", vk: 13, text: "\r" },
+  Tab: { code: "Tab", vk: 9 },
+  Escape: { code: "Escape", vk: 27 },
+  Backspace: { code: "Backspace", vk: 8 },
+  Delete: { code: "Delete", vk: 46 },
+  ArrowUp: { code: "ArrowUp", vk: 38 },
+  ArrowDown: { code: "ArrowDown", vk: 40 },
+  ArrowLeft: { code: "ArrowLeft", vk: 37 },
+  ArrowRight: { code: "ArrowRight", vk: 39 },
+  Home: { code: "Home", vk: 36 },
+  End: { code: "End", vk: 35 },
+  PageUp: { code: "PageUp", vk: 33 },
+  PageDown: { code: "PageDown", vk: 34 },
+  Space: { code: "Space", vk: 32, text: " " },
+  ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`F${i + 1}`, { code: `F${i + 1}`, vk: 112 + i }])),
+};
+
+/** JS fragment: `const el = …` resolving a ref (e12) or CSS selector. */
+function FIND_ONE(target: string): string {
+  const t = JSON.stringify(target);
+  return `let el = document.querySelector('[data-lopster-ref="' + ${t} + '"]'); if (!el) { try { el = document.querySelector(${t}); } catch {} }`;
+}
+
+function SELECT_SCRIPT(target: string, value?: string, label?: string): string {
+  return `(() => { ${FIND_ONE(target)}
+    if (!el) return { error: "No element matches " + ${JSON.stringify(target)} };
+    if (el.tagName !== "SELECT") { const inner = el.querySelector && el.querySelector("select"); if (inner) el = inner; else return { error: "Not a <select>: " + el.tagName }; }
+    const opts = [...el.options];
+    const want = ${JSON.stringify(value ?? null)}; const wantLabel = ${JSON.stringify(label ?? null)};
+    let o = want != null ? opts.find((x) => x.value === want) : null;
+    if (!o && wantLabel != null) o = opts.find((x) => x.textContent.trim().toLowerCase() === wantLabel.toLowerCase()) || opts.find((x) => x.textContent.trim().toLowerCase().includes(wantLabel.toLowerCase()));
+    if (!o && want != null) o = opts.find((x) => x.textContent.trim().toLowerCase() === want.toLowerCase());
+    if (!o) return { error: "No option matches", options: opts.slice(0, 50).map((x) => x.textContent.trim() + " [" + x.value + "]") };
+    el.value = o.value; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true }));
+    return { value: o.value, label: o.textContent.trim() };
+  })()`;
+}
+
+function WAIT_SCRIPT(target: string, text: string): string {
+  return `(() => { let ok = true;
+    if (${JSON.stringify(target)}) { ${FIND_ONE(target)} ok = ok && !!el && (el.offsetParent !== null || el.getClientRects().length > 0); }
+    if (${JSON.stringify(text)}) { ok = ok && (document.body?.innerText || "").includes(${JSON.stringify(text)}); }
+    return ok; })()`;
 }

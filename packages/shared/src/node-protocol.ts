@@ -24,12 +24,16 @@ export const nodeCapabilitySchema = z.enum([
   "browser.type",
   "browser.screenshot",
   "browser.tabs",
+  "browser.eval",
+  "browser.interact",
+  "browser.html",
+  "browser.pdf",
 ]);
 
 export type NodeCapability = z.infer<typeof nodeCapabilitySchema>;
 
 /** Capabilities served by the desktop app's browser controller. */
-export const BROWSER_CAPS = ["browser.open", "browser.snapshot", "browser.click", "browser.type", "browser.screenshot", "browser.tabs"] as const satisfies readonly NodeCapability[];
+export const BROWSER_CAPS = ["browser.open", "browser.snapshot", "browser.click", "browser.type", "browser.screenshot", "browser.tabs", "browser.eval", "browser.interact", "browser.html", "browser.pdf"] as const satisfies readonly NodeCapability[];
 
 /** First frame from node → gateway. */
 export const connectFrameSchema = z.object({

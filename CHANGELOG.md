@@ -6,6 +6,18 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-26
+
+### Added
+- Full browser control on Windows nodes: `browser.eval` (run JavaScript in the page, awaited
+  result as JSON), `browser.interact` (press keys with modifiers, scroll, hover, choose <select>
+  options, back/forward/reload, wait for an element or text), `browser.html` (raw markup of the
+  page or an element) and `browser.pdf` (print to PDF into the workspace inbox). Eval, key presses,
+  selects and history navigation go through the chat approval (or "Always allow"); scroll, hover,
+  wait, HTML and PDF are free. Enable the new capabilities on the node page after updating the tray app.
+- Tray app development runs (`electron .`) use their own data folder and single-instance lock, so
+  they can run next to the installed app; the default browser tab skips stray about:blank tabs.
+
 ## [1.4.0] - 2026-10-26
 
 ### Added
@@ -227,7 +239,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/noneym/easylopster.com/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/noneym/easylopster.com/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/noneym/easylopster.com/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/noneym/easylopster.com/compare/v1.1.1...v1.2.0
