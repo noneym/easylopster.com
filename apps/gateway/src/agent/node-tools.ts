@@ -116,19 +116,27 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
       tools[`node_${s}_exec`] = tool({
         description: `Run a shell command on node "${node.name}" (${node.platform ?? "machine"}; ${node.platform === "windows" ? "PowerShell" : "bash"}). ${
           needsApproval && !autoApprove.has("exec") ? "The owner must approve each command in chat before it runs (they can answer Allow once, Always or Deny); show the exact command you intend to run." : "Runs without approval."
-        } Default timeout 60s (max 300). Returns exit code, stdout, stderr.`,
+        } Default timeout 60s (max 300): when the timeout hits, the process is killed. Anything that can take longer (downloads, installs, builds, long scripts) MUST use background=true: it starts detached, returns a jobId at once and keeps running; follow it with the jobs tool (status / tail) and read its output from jobs/<id>.log in the shared folder. Returns exit code, stdout, stderr.`,
         inputSchema: z.object({
           command: z.string().min(1).max(8000),
           timeoutSec: z.number().int().min(1).max(300).optional(),
           cwd: z.string().max(400).optional(),
+          background: z.boolean().default(false).describe("Detach and return a jobId immediately; required for work longer than the timeout."),
         }),
-        execute: async ({ command, timeoutSec, cwd }) => {
+        execute: async ({ command, timeoutSec, cwd, background }) => {
           if (needsApproval) {
-            const denied = await approve(`node_${s}_exec`, { command, timeoutSec, cwd }, command, "exec");
+            const denied = await approve(`node_${s}_exec`, { command, timeoutSec, cwd, background }, `${background ? "[background] " : ""}${command}`, "exec");
             if (denied) return denied;
           }
-          return safe(() => call("exec", { command, timeoutSec, cwd, env: ctx.env ?? {} }, ((timeoutSec ?? 60) + 15) * 1000));
+          return safe(() => call("exec", { command, timeoutSec, cwd, background, env: ctx.env ?? {} }, background ? 20_000 : ((timeoutSec ?? 60) + 15) * 1000));
         },
+      });
+    }
+    if (caps.includes("exec.jobs")) {
+      tools[`node_${s}_jobs`] = tool({
+        description: `Background jobs started with exec background=true on node "${node.name}": list them, check status, tail the log (last N lines), or kill one. Free, no approval. Poll with tail every so often instead of blocking; do not re-run a job that is still running.`,
+        inputSchema: z.object({ action: z.enum(["list", "status", "tail", "kill"]).default("list"), jobId: z.string().max(40).optional(), lines: z.number().int().min(1).max(400).optional() }),
+        execute: ({ action, jobId, lines }) => safe(() => call("exec.jobs", { action, jobId, lines }, 30_000)),
       });
     }
 
@@ -293,6 +301,39 @@ export async function nodeToolsForBot(ctx: NodeToolContext): Promise<{ tools: To
             }
             return { tabId: r.tabId, url: r.url, title: r.title, bytes: r.bytes, path: cloudPath, attach: cloudPath ? `MEDIA:${cloudPath}` : undefined };
           },
+        });
+      }
+      if (browserCaps.includes("browser.cookies")) {
+        tools[`node_${s}_browser_cookies`] = tool({
+          description: `Cookies of the Brave profile in ${where}. list: names/domains/expiry for the current site (all=true for every site; includeValues only when the owner asks). export: writes a Netscape cookies.txt into the shared folder (cookies/<host>.txt) for tools like yt-dlp / curl --cookie. import: load a cookies.txt from the shared folder. clear: delete the site's (or all) cookies. export, import and clear need approval; list is free.`,
+          inputSchema: z.object({ action: z.enum(["list", "export", "import", "clear"]).default("list"), all: z.boolean().default(false), includeValues: z.boolean().default(false), path: z.string().max(400).optional().describe("import: cookies.txt path inside the shared folder"), tabId: tabArg }),
+          execute: async ({ action, all, includeValues, path: filePath, tabId }) => {
+            if (action !== "list" && needsApproval) {
+              const denied = await approve(`node_${s}_browser_cookies`, { action, all, path: filePath, tabId }, `cookies ${action}${all ? " (all sites)" : ""}${filePath ? ` ${filePath}` : ""}`, "browser.cookies");
+              if (denied) return denied;
+            }
+            return safe(() => call("browser.cookies", { action, all, includeValues, path: filePath, tabId }, 30_000));
+          },
+        });
+      }
+      if (browserCaps.includes("browser.upload")) {
+        tools[`node_${s}_browser_upload`] = tool({
+          description: `Attach files from the node's shared folder to a file input in ${where} (target = ref or selector of the <input type=file>). Then click the page's submit/upload button yourself.${gate}`,
+          inputSchema: z.object({ target: refArg, files: z.array(z.string().min(1).max(400)).min(1).max(20).describe("paths inside the shared folder, e.g. downloads/report.pdf"), tabId: tabArg }),
+          execute: async ({ target, files, tabId }) => {
+            if (needsApproval) {
+              const denied = await approve(`node_${s}_browser_upload`, { target, files, tabId }, `upload ${files.join(", ")} to ${target}`, "browser.upload");
+              if (denied) return denied;
+            }
+            return safe(() => call("browser.upload", { target, files, tabId }, 30_000));
+          },
+        });
+      }
+      if (browserCaps.includes("browser.downloads")) {
+        tools[`node_${s}_browser_downloads`] = tool({
+          description: `Files the browser in ${where} downloaded (they land in the shared folder under downloads/; .crdownload = still in progress). Free, no approval.`,
+          inputSchema: z.object({}),
+          execute: () => safe(() => call("browser.downloads", {}, 20_000)),
         });
       }
       if (browserCaps.includes("browser.tabs")) {

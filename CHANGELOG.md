@@ -6,6 +6,28 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-26
+
+### Added
+- Background jobs on nodes: `exec` with `background=true` starts a detached process that survives
+  the command timeout, writes its output to `jobs/<id>.log` in the shared folder and returns a job
+  id; the new `jobs` tool (capability `exec.jobs`) lists, checks, tails and kills them. The exec
+  description now tells the model to use it for downloads, installs and builds.
+- Browser cookies: `browser.cookies` lists the current site's cookies (no values unless asked),
+  exports a Netscape cookies.txt into the shared folder (cookies/<host>.txt, ready for yt-dlp or
+  curl), imports one, or clears cookies; export/import/clear need approval.
+- Browser file upload (`browser.upload`: attach files from the shared folder to a file input) and
+  downloads (`browser.downloads`: the controlled Brave now saves downloads into the shared folder's
+  downloads/ and the tool lists them). JavaScript dialogs (alert/confirm/prompt) are auto-accepted
+  and logged instead of blocking the page.
+- The controlled Brave profile keeps its logins between sessions: the tray app now closes Brave
+  gracefully (Browser.close, then waits for it to exit) so cookies and site data are flushed to the
+  persistent profile instead of being lost on a hard kill, and the "restore pages" bubble is hidden.
+
+### Fixed
+- Background jobs on Windows: Windows PowerShell does not run as a detached (console-less) process,
+  so the job produced no output; jobs are now started as hidden children instead.
+
 ## [1.5.0] - 2026-10-26
 
 ### Added
@@ -239,7 +261,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/noneym/easylopster.com/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/noneym/easylopster.com/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/noneym/easylopster.com/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/noneym/easylopster.com/compare/v1.2.0...v1.3.0

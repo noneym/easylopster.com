@@ -27,6 +27,10 @@ const CAP_LABELS: Record<string, string> = {
   "browser.interact": "Browser: keys, scroll, hover, select, back/forward, wait",
   "browser.html": "Browser: read HTML",
   "browser.pdf": "Browser: save as PDF",
+  "browser.cookies": "Browser: cookies (list/export/import/clear)",
+  "browser.upload": "Browser: upload files from the shared folder",
+  "browser.downloads": "Browser: list downloads",
+  "exec.jobs": "Background jobs (status/log/kill)",
 };
 
 export default async function NodeDetailPage({ params }: PageProps<"/dashboard/nodes/[id]">) {

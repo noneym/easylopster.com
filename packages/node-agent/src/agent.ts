@@ -16,7 +16,7 @@ import { APP_VERSION } from "@easylopster/shared/version";
 
 export const VERSION = APP_VERSION;
 export const DEFAULT_GATEWAY = "wss://gw.easylopster.com/ws";
-export const BASE_CAPS: NodeCapability[] = ["fs.read", "fs.write", "fs.list", "fs.search", "exec", "system.which", "system.notify", "device.info"];
+export const BASE_CAPS: NodeCapability[] = ["fs.read", "fs.write", "fs.list", "fs.search", "exec", "exec.jobs", "system.which", "system.notify", "device.info"];
 const MAX_OUTPUT = 24_000;
 
 export interface NodeConfig {
@@ -154,6 +154,81 @@ export function exec(root: string, command: string, timeoutSec = 60, cwd?: strin
   });
 }
 
+// ───────────────────────── background jobs ─────────────────────────
+/**
+ * Long work (downloads, builds, installs) must not die with the exec timeout: `exec` with
+ * background=true starts a detached process whose output goes to <workspace>/jobs/<id>.log and
+ * returns at once; `exec.jobs` lists, tails and kills them. Jobs live in memory, logs on disk.
+ */
+interface Job {
+  id: string;
+  pid: number;
+  command: string;
+  cwd: string;
+  startedAt: number;
+  endedAt?: number;
+  exitCode?: number | null;
+  logPath: string;
+}
+const jobs = new Map<string, Job>();
+
+async function execBackground(root: string, command: string, cwd?: string, extraEnv: Record<string, string> = {}) {
+  const dir = cwd ? jail(root, cwd) : root;
+  const jobsDir = path.join(root, "jobs");
+  await mkdir(jobsDir, { recursive: true });
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const logPath = path.join(jobsDir, `${id}.log`);
+  const { openSync, closeSync } = await import("node:fs");
+  const fd = openSync(logPath, "a");
+  const isWin = process.platform === "win32";
+  const env = { ...process.env, ...extraEnv };
+  const child = isWin
+    // Windows PowerShell refuses to run without a console, so a DETACHED_PROCESS spawn produces no output at all.
+    // A plain hidden child is enough here: nothing kills it on a timeout, and Windows does not reap children with their parent.
+    ? spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command], { cwd: dir, windowsHide: true, env, stdio: ["ignore", fd, fd] })
+    : spawn("bash", ["-lc", command], { cwd: dir, env, detached: true, stdio: ["ignore", fd, fd] });
+  closeSync(fd);
+  const job: Job = { id, pid: child.pid ?? -1, command, cwd: dir, startedAt: Date.now(), logPath };
+  jobs.set(id, job);
+  child.on("exit", (code) => {
+    job.endedAt = Date.now();
+    job.exitCode = code;
+  });
+  child.on("error", () => {
+    job.endedAt = Date.now();
+    job.exitCode = -1;
+  });
+  child.unref();
+  return { jobId: id, pid: job.pid, logPath: `jobs/${id}.log`, note: "Running in the background. Check with exec.jobs (status / tail); the log file is in the shared folder." };
+}
+
+async function jobsCmd(root: string, action: string, jobId?: string, lines = 60) {
+  const view = (j: Job) => ({ jobId: j.id, pid: j.pid, command: j.command.slice(0, 200), startedAt: new Date(j.startedAt).toISOString(), running: j.endedAt == null, exitCode: j.exitCode ?? null, durationMs: (j.endedAt ?? Date.now()) - j.startedAt, logPath: path.relative(root, j.logPath).split(path.sep).join("/") });
+  if (action === "list") return { jobs: [...jobs.values()].slice(-50).map(view) };
+  if (!jobId) return { error: "jobId is required" };
+  const j = jobs.get(jobId);
+  if (!j) return { error: `Unknown job ${jobId} (jobs are forgotten when the node app restarts; the log file may still exist under jobs/).` };
+  if (action === "status") return view(j);
+  if (action === "tail") {
+    const text = await readFile(j.logPath, "utf8").catch(() => "");
+    const tail = text.split(/\r?\n/).slice(-Math.min(Math.max(lines, 1), 400)).join("\n");
+    return { ...view(j), tail: tail.slice(-24_000) };
+  }
+  if (action === "kill") {
+    if (j.endedAt != null) return { ...view(j), note: "already finished" };
+    try {
+      if (process.platform === "win32") await exec(os.tmpdir(), `taskkill /PID ${j.pid} /T /F`, 15);
+      else process.kill(-j.pid, "SIGKILL");
+    } catch (err) {
+      return { error: (err as Error).message };
+    }
+    j.endedAt = Date.now();
+    j.exitCode = -9;
+    return { ...view(j), killed: true };
+  }
+  return { error: `Unknown action ${action}` };
+}
+
 async function which(name: string) {
   if (!/^[\w.+-]+$/.test(name)) return { found: false, error: "invalid name" };
   const r = process.platform === "win32" ? await exec(os.tmpdir(), `(Get-Command ${name} -ErrorAction SilentlyContinue).Source`, 10) : await exec(os.tmpdir(), `command -v ${name}`, 10);
@@ -212,7 +287,10 @@ async function handle(root: string, method: NodeCapability, p: Record<string, un
     case "fs.search":
       return search(root, String(p.query), Number(p.maxResults ?? 40));
     case "exec":
+      if (p.background) return execBackground(root, String(p.command), p.cwd ? String(p.cwd) : undefined, p.env && typeof p.env === "object" ? (p.env as Record<string, string>) : {});
       return exec(root, String(p.command), p.timeoutSec ? Number(p.timeoutSec) : 60, p.cwd ? String(p.cwd) : undefined, p.env && typeof p.env === "object" ? (p.env as Record<string, string>) : {});
+    case "exec.jobs":
+      return jobsCmd(root, String(p.action ?? "list"), p.jobId ? String(p.jobId) : undefined, p.lines ? Number(p.lines) : 60);
     case "system.which":
       return which(String(p.name));
     case "system.notify":

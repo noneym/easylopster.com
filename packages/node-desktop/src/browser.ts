@@ -9,7 +9,7 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -238,6 +238,12 @@ export class BrowserController {
         return this.html(p.tabId ? String(p.tabId) : undefined, p.target ? String(p.target) : undefined);
       case "browser.pdf":
         return this.pdf(p.tabId ? String(p.tabId) : undefined);
+      case "browser.cookies":
+        return this.cookies(String(p.action ?? "list"), p, p.tabId ? String(p.tabId) : undefined);
+      case "browser.upload":
+        return this.upload(String(p.target ?? ""), (p.files as string[] | undefined) ?? [], p.tabId ? String(p.tabId) : undefined);
+      case "browser.downloads":
+        return this.downloads();
       default:
         throw new Error(`Unsupported method ${method}`);
     }
@@ -263,6 +269,8 @@ export class BrowserController {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-features=Translate",
+      "--disable-session-crashed-bubble",
+      "--hide-crash-restore-bubble",
       "--window-size=1280,900",
       "about:blank",
     ];
@@ -292,6 +300,11 @@ export class BrowserController {
       const sock = new WebSocket(endpoint!, { perMessageDeflate: false, maxPayload: 256 * 1024 * 1024 });
       sock.on("open", () => {
         this.ws = sock;
+        // Downloads land in <workspace>/downloads so the agent (and yt-dlp & co.) can pick them up.
+        const dl = path.join(this.opts.workspace(), "downloads");
+        void mkdir(dl, { recursive: true })
+          .then(() => this.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dl, eventsEnabled: true }))
+          .catch((err) => this.opts.log(`browser: download dir not set: ${(err as Error).message}`));
         resolve();
       });
       sock.on("error", (err) => reject(err));
@@ -305,10 +318,16 @@ export class BrowserController {
     this.opts.log("browser: connected to Brave DevTools");
   }
 
+  /** Graceful shutdown so Brave flushes cookies, local storage and logins to the profile; kill only as a last resort. */
   async close() {
     const child = this.child;
+    if (this.running) {
+      await this.send("Browser.close", {}, undefined, 5_000).catch(() => {});
+      const deadline = Date.now() + 6_000;
+      while (child && child.exitCode == null && Date.now() < deadline) await sleep(150);
+    }
     this.teardown();
-    if (child && !child.killed) {
+    if (child && child.exitCode == null && !child.killed) {
       try {
         child.kill();
       } catch {}
@@ -384,6 +403,11 @@ export class BrowserController {
     } else if (msg.sessionId) {
       const t = this.bySession.get(msg.sessionId);
       if (!t) return;
+      if (ev === "Page.javascriptDialogOpening") {
+        // alert/confirm/prompt would block the page forever; accept them and note it in the log.
+        this.opts.log(`browser: dialog (${String(params.type)}) "${String(params.message ?? "").slice(0, 120)}" auto-accepted on ${t.tabId}`);
+        void this.send("Page.handleJavaScriptDialog", { accept: true, promptText: "" }, msg.sessionId).catch(() => {});
+      }
       if (ev === "Page.frameStartedLoading" && params.frameId && !t.loading) t.loading = true;
       if (ev === "Page.loadEventFired" || ev === "Page.frameStoppedLoading") t.loading = false;
     }
@@ -717,6 +741,108 @@ export class BrowserController {
     return { tabId: t.tabId, path: `inbox/${name}`, mimeType: "application/pdf", bytes: Math.floor((data.length * 3) / 4), data, ...(await this.pageInfo(sid)) };
   }
 
+  /** Cookies of the current page's site (or all): list without values, export as Netscape cookies.txt, import, clear. */
+  async cookies(action: string, p: Record<string, unknown>, tabId?: string) {
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    const info = await this.pageInfo(sid).catch(() => ({ url: "", title: "" }));
+    const all = !!p.all;
+    const list = async () => {
+      const r = all ? await this.send<{ cookies: CdpCookie[] }>("Storage.getCookies") : await this.send<{ cookies: CdpCookie[] }>("Network.getCookies", info.url ? { urls: [info.url] } : {}, sid);
+      return r.cookies ?? [];
+    };
+    if (action === "list") {
+      const cookies = await list();
+      return {
+        tabId: t.tabId,
+        url: info.url,
+        count: cookies.length,
+        cookies: cookies.slice(0, 200).map((c) => ({ name: c.name, domain: c.domain, path: c.path, expires: c.expires && c.expires > 0 ? new Date(c.expires * 1000).toISOString() : "session", httpOnly: c.httpOnly, secure: c.secure, ...(p.includeValues ? { value: c.value } : {}) })),
+      };
+    }
+    if (action === "export") {
+      const cookies = await list();
+      const host = (info.url ? new URL(info.url).hostname : "all").replace(/[^a-z0-9.-]/gi, "_");
+      const dir = path.join(this.opts.workspace(), "cookies");
+      await mkdir(dir, { recursive: true });
+      const name = `${all ? "all" : host}.txt`;
+      const lines = ["# Netscape HTTP Cookie File", "# Exported by easylopster Node from the controlled Brave profile", ""];
+      for (const c of cookies) {
+        const domain = c.domain.startsWith(".") ? c.domain : c.domain;
+        lines.push([domain, domain.startsWith(".") ? "TRUE" : "FALSE", c.path || "/", c.secure ? "TRUE" : "FALSE", String(Math.floor(c.expires && c.expires > 0 ? c.expires : 0)), c.name, c.value].join("\t"));
+      }
+      await writeFile(path.join(dir, name), lines.join("\n") + "\n", "utf8");
+      this.opts.log(`browser: exported ${cookies.length} cookies -> cookies/${name}`);
+      return { tabId: t.tabId, url: info.url, count: cookies.length, path: `cookies/${name}`, format: "netscape", note: "Use it from exec, e.g. yt-dlp --cookies <shared folder>/cookies/<file>." };
+    }
+    if (action === "import") {
+      const rel = String(p.path ?? "");
+      if (!rel) throw new Error("path (a Netscape cookies.txt inside the shared folder) is required");
+      const abs = path.resolve(this.opts.workspace(), rel.replace(/^[\\/]+/, ""));
+      if (!abs.startsWith(path.resolve(this.opts.workspace()) + path.sep)) throw new Error("path escapes the shared folder");
+      const text = await readFile(abs, "utf8");
+      const cookies: Record<string, unknown>[] = [];
+      for (const line of text.split(/\r?\n/)) {
+        if (!line || line.startsWith("#")) continue;
+        const f = line.split("\t");
+        if (f.length < 7) continue;
+        const expires = Number(f[4]);
+        cookies.push({ name: f[5], value: f[6], domain: f[0], path: f[2] || "/", secure: f[3] === "TRUE", ...(expires > 0 ? { expires } : {}) });
+      }
+      if (!cookies.length) throw new Error("No cookies found in the file (expected Netscape format).");
+      await this.send("Storage.setCookies", { cookies });
+      this.opts.log(`browser: imported ${cookies.length} cookies from ${rel}`);
+      return { imported: cookies.length };
+    }
+    if (action === "clear") {
+      if (all) await this.send("Storage.clearCookies");
+      else {
+        const cookies = await list();
+        for (const c of cookies) await this.send("Network.deleteCookies", { name: c.name, domain: c.domain, path: c.path }, sid).catch(() => {});
+        return { tabId: t.tabId, cleared: cookies.length };
+      }
+      return { cleared: "all" };
+    }
+    throw new Error(`Unknown cookies action ${action}`);
+  }
+
+  /** Attach files from the shared folder to an <input type=file>. */
+  async upload(target: string, files: string[], tabId?: string) {
+    if (!target) throw new Error("target (ref or CSS selector of the file input) is required");
+    if (!files.length) throw new Error("files (paths inside the shared folder) are required");
+    const root = path.resolve(this.opts.workspace());
+    const abs = files.map((f) => {
+      const a = path.resolve(root, String(f).replace(/^[\\/]+/, ""));
+      if (!a.startsWith(root + path.sep)) throw new Error(`path escapes the shared folder: ${f}`);
+      return a;
+    });
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    const { root: doc } = await this.send<{ root: { nodeId: number } }>("DOM.getDocument", { depth: 0 }, sid);
+    const selector = /^e\d+$/.test(target) ? `[data-lopster-ref="${target}"]` : target;
+    const { nodeId } = await this.send<{ nodeId: number }>("DOM.querySelector", { nodeId: doc.nodeId, selector }, sid);
+    if (!nodeId) throw new Error(`No element matches ${target}. Take a snapshot and use the ref of the file input.`);
+    await this.send("DOM.setFileInputFiles", { files: abs, nodeId }, sid);
+    await sleep(300);
+    this.opts.log(`browser: attached ${abs.length} file(s) to ${target} on ${t.tabId}`);
+    return { tabId: t.tabId, attached: abs.map((a) => path.relative(root, a).split(path.sep).join("/")), ...(await this.pageInfo(sid)) };
+  }
+
+  /** Files in <workspace>/downloads (where the browser saves downloads). */
+  async downloads() {
+    const dir = path.join(this.opts.workspace(), "downloads");
+    await mkdir(dir, { recursive: true });
+    const { readdir, stat } = await import("node:fs/promises");
+    const names = await readdir(dir);
+    const files = [];
+    for (const n of names) {
+      const s = await stat(path.join(dir, n)).catch(() => null);
+      if (s?.isFile()) files.push({ path: `downloads/${n}`, bytes: s.size, modifiedAt: s.mtime.toISOString(), inProgress: /\.crdownload$/i.test(n) });
+    }
+    files.sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1));
+    return { dir: "downloads/", files: files.slice(0, 100) };
+  }
+
   private async listTabs() {
     const pages = await this.refreshTargets();
     return pages.map((p) => ({ tabId: this.byTarget.get(p.targetId)!.tabId, url: p.url, title: p.title }));
@@ -768,3 +894,5 @@ function WAIT_SCRIPT(target: string, text: string): string {
     if (${JSON.stringify(text)}) { ok = ok && (document.body?.innerText || "").includes(${JSON.stringify(text)}); }
     return ok; })()`;
 }
+
+type CdpCookie = { name: string; value: string; domain: string; path: string; expires: number; httpOnly: boolean; secure: boolean };
