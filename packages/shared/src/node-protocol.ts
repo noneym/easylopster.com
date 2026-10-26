@@ -16,6 +16,7 @@ export const nodeCapabilitySchema = z.enum([
   "exec.jobs",
   "system.which",
   "system.notify",
+  "system.clipboard",
   "screen.snapshot",
   "device.info",
   // Browser control (Windows tray app drives the user's Brave over the DevTools protocol).
@@ -32,12 +33,14 @@ export const nodeCapabilitySchema = z.enum([
   "browser.cookies",
   "browser.upload",
   "browser.downloads",
+  "browser.network",
+  "browser.profiles",
 ]);
 
 export type NodeCapability = z.infer<typeof nodeCapabilitySchema>;
 
 /** Capabilities served by the desktop app's browser controller. */
-export const BROWSER_CAPS = ["browser.open", "browser.snapshot", "browser.click", "browser.type", "browser.screenshot", "browser.tabs", "browser.eval", "browser.interact", "browser.html", "browser.pdf", "browser.cookies", "browser.upload", "browser.downloads"] as const satisfies readonly NodeCapability[];
+export const BROWSER_CAPS = ["browser.open", "browser.snapshot", "browser.click", "browser.type", "browser.screenshot", "browser.tabs", "browser.eval", "browser.interact", "browser.html", "browser.pdf", "browser.cookies", "browser.upload", "browser.downloads", "browser.network", "browser.profiles"] as const satisfies readonly NodeCapability[];
 
 /** First frame from node → gateway. */
 export const connectFrameSchema = z.object({

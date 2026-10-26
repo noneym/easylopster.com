@@ -4,7 +4,7 @@
  * autostart and (opt-in) browser control of Brave. The node config file is shared with the
  * CLI (~/.easylopster/node.json).
  */
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, shell, Notification } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, shell, Notification, clipboard } from "electron";
 import os from "node:os";
 import path from "node:path";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -29,7 +29,9 @@ let agent: NodeAgent | null = null;
 let quitting = false;
 let config: NodeConfig;
 let settings: DesktopSettings = { autostart: false, browser: false };
-let browser: BrowserController | null = null;
+/** One controller per Brave profile; "default" is the original brave-profile folder, others live under brave-profiles/<name>. */
+const browsers = new Map<string, BrowserController>();
+const PROFILE_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
 let status: AgentStatus = { state: "stopped", since: Date.now() };
 const logs: string[] = [];
 // Dev runs (`electron .`) must never touch the installed app's config (~/.easylopster/node.json):
@@ -63,7 +65,7 @@ function publicState() {
     logs,
     hostname: os.hostname(),
     bravePath: findBrave(settings.bravePath) ?? null,
-    browserRunning: !!browser?.running,
+    browserRunning: anyBrowserRunning(),
   };
 }
 function pushState() {
@@ -87,22 +89,79 @@ function applyAutostart() {
 }
 
 // ───────────────────────── browser ─────────────────────────
-function getBrowser() {
-  if (!browser) {
-    browser = new BrowserController({
-      profileDir: path.join(app.getPath("userData"), "brave-profile"),
+function profileDir(name: string) {
+  return name === "default" ? path.join(app.getPath("userData"), "brave-profile") : path.join(app.getPath("userData"), "brave-profiles", name);
+}
+function normalizeProfile(raw: unknown) {
+  const name = String(raw ?? "default").trim() || "default";
+  if (!PROFILE_RE.test(name)) throw new Error(`Invalid profile name "${name}" (letters, digits, - and _, max 32).`);
+  return name;
+}
+function getBrowser(profile = "default") {
+  let b = browsers.get(profile);
+  if (!b) {
+    b = new BrowserController({
+      profileDir: profileDir(profile),
       workspace: () => config.workspace,
       bravePath: () => settings.bravePath,
-      log,
+      log: (line) => log(profile === "default" ? line : line.replace(/^browser:/, `browser[${profile}]:`)),
     });
+    browsers.set(profile, b);
   }
-  return browser;
+  return b;
 }
-async function closeBrowser() {
-  const b = browser;
-  browser = null;
-  if (b) await b.close().catch(() => {});
+function anyBrowserRunning() {
+  for (const b of browsers.values()) if (b.running) return true;
+  return false;
+}
+async function closeBrowser(profile?: string) {
+  const list = profile ? [profile] : [...browsers.keys()];
+  await Promise.all(
+    list.map(async (name) => {
+      const b = browsers.get(name);
+      browsers.delete(name);
+      if (b) await b.close().catch(() => {});
+    }),
+  );
   pushState();
+}
+/** browser.profiles: list / create / close / delete named Brave profiles (separate cookies and logins per profile). */
+async function profilesCmd(action: string, p: Record<string, unknown>) {
+  const { readdir, rm, mkdir } = await import("node:fs/promises");
+  const root = path.join(app.getPath("userData"), "brave-profiles");
+  await mkdir(root, { recursive: true });
+  const names = ["default", ...(await readdir(root, { withFileTypes: true })).filter((d) => d.isDirectory()).map((d) => d.name).sort()];
+  if (action === "list") return { profiles: names.map((n) => ({ name: n, running: !!browsers.get(n)?.running })), note: "Pass profile=<name> to any browser tool to use that profile; each has its own cookies and logins." };
+  const name = normalizeProfile(p.name);
+  if (action === "create") {
+    if (names.includes(name)) return { profile: name, created: false, note: "already exists" };
+    await mkdir(profileDir(name), { recursive: true });
+    log(`browser: profile ${name} created`);
+    return { profile: name, created: true };
+  }
+  if (action === "close") {
+    await closeBrowser(name);
+    return { profile: name, closed: true };
+  }
+  if (action === "delete") {
+    if (name === "default") throw new Error("The default profile cannot be deleted; use browser.cookies clear instead.");
+    await closeBrowser(name);
+    await rm(profileDir(name), { recursive: true, force: true });
+    log(`browser: profile ${name} deleted`);
+    return { profile: name, deleted: true };
+  }
+  throw new Error(`Unknown profiles action ${action}`);
+}
+/** system.clipboard: read or write the clipboard text of this PC. */
+async function clipboardCmd(action: string, p: Record<string, unknown>) {
+  if (action === "write") {
+    const text = String(p.text ?? "");
+    await clipboard.writeText(text);
+    return { written: text.length };
+  }
+  const text = await clipboard.readText();
+  const max = Math.min(Math.max(Number(p.maxChars ?? 20_000), 100), 200_000);
+  return { text: text.slice(0, max), length: text.length, truncated: text.length > max };
 }
 
 // ───────────────────────── agent ─────────────────────────
@@ -112,10 +171,16 @@ function buildAgent(pairingCode?: string) {
     configPath,
     pairingCode,
     log,
-    extraCaps: settings.browser ? [...BROWSER_CAPS] : [],
+    extraCaps: ["system.clipboard", ...(settings.browser ? BROWSER_CAPS : [])],
     extra: async (method, params) => {
+      if (method === "system.clipboard") return clipboardCmd(String(params.action ?? "read"), params);
       if (!settings.browser) throw new Error("Browser control is turned off on this node.");
-      const r = await getBrowser().handle(method, params);
+      if (method === "browser.profiles") {
+        const r = await profilesCmd(String(params.action ?? "list"), params);
+        pushState();
+        return r;
+      }
+      const r = await getBrowser(normalizeProfile(params.profile)).handle(method, params);
       pushState();
       return r;
     },
@@ -177,7 +242,7 @@ function updateTray() {
       config.token && status.state !== "stopped" ? { label: "Disconnect", click: () => void stopAgent() } : { label: "Connect", enabled: !!config.token, click: () => void startAgent() },
       { label: "Start with Windows", type: "checkbox", checked: settings.autostart, click: (item) => void setAutostart(item.checked) },
       { label: "Browser control (Brave)", type: "checkbox", checked: settings.browser, click: (item) => void setBrowser(item.checked) },
-      ...(browser?.running ? [{ label: "Close controlled Brave", click: () => void closeBrowser() }] : []),
+      ...(anyBrowserRunning() ? [{ label: "Close controlled Brave", click: () => void closeBrowser() }] : []),
       { type: "separator" },
       { label: "Quit", click: () => quit() },
     ]),
@@ -234,7 +299,7 @@ function showWindow() {
 }
 function quit() {
   quitting = true;
-  void Promise.all([agent ? agent.stop() : Promise.resolve(), browser ? browser.close() : Promise.resolve()]).then(() => app.quit());
+  void Promise.all([agent ? agent.stop() : Promise.resolve(), closeBrowser()]).then(() => app.quit());
 }
 
 // ───────────────────────── ipc ─────────────────────────

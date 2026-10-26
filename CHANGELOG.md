@@ -6,6 +6,23 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-26
+
+### Added
+- Browser network capture (`browser.network`): every tab records the requests the page makes
+  (method, URL, type, status, size, timing); the tool lists them with URL/type filters, returns one
+  response body by id (JSON APIs, HTML fragments, up to 200k chars) or clears the log. Reading a
+  page's own API calls is usually easier than scraping its DOM.
+- Multiple Brave profiles (`browser.profiles`): list / create / close / delete named profiles, each
+  with its own cookies and logins; every browser tool takes `profile=<name>` (default = the existing
+  profile). Deleting a profile needs approval.
+- Drag and drop (`browser_drag` on `browser.interact`): mouse drag from one element to another or
+  to coordinates; HTML5 drags are intercepted and completed with dragEnter/dragOver/drop so sortable
+  lists, kanban boards and drop zones work.
+- Clipboard (`system.clipboard`, tray app): read the PC clipboard text (needs approval) or write to it.
+- Background jobs survive node restarts: the job list is kept in `jobs/index.json`; after a restart
+  a still-running process is picked up again and a finished one is reported with an unknown exit code.
+
 ## [1.5.1] - 2026-10-26
 
 ### Added
@@ -261,7 +278,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/noneym/easylopster.com/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/noneym/easylopster.com/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/noneym/easylopster.com/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/noneym/easylopster.com/compare/v1.3.0...v1.4.0

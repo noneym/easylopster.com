@@ -82,7 +82,27 @@ interface TabState {
   targetId: string;
   sessionId?: string;
   loading: boolean;
+  /** Recent network requests of this tab (ring buffer, newest last). */
+  net: NetEntry[];
+  /** Set while a drag is in flight and the page started an HTML5 drag (Input.dragIntercepted). */
+  dragData?: Record<string, unknown> | null;
 }
+
+interface NetEntry {
+  requestId: string;
+  url: string;
+  method: string;
+  type?: string;
+  status?: number;
+  mimeType?: string;
+  size?: number;
+  startedAt: number;
+  endedAt?: number;
+  failed?: string;
+  postData?: string;
+  fromCache?: boolean;
+}
+const NET_LIMIT = 400;
 
 /** Script run inside the page: a compact, ref-annotated text snapshot (OpenClaw/agent-browser style). */
 const SNAPSHOT_SCRIPT = `(() => {
@@ -244,6 +264,8 @@ export class BrowserController {
         return this.upload(String(p.target ?? ""), (p.files as string[] | undefined) ?? [], p.tabId ? String(p.tabId) : undefined);
       case "browser.downloads":
         return this.downloads();
+      case "browser.network":
+        return this.network(String(p.action ?? "list"), p, p.tabId ? String(p.tabId) : undefined);
       default:
         throw new Error(`Unsupported method ${method}`);
     }
@@ -410,11 +432,39 @@ export class BrowserController {
       }
       if (ev === "Page.frameStartedLoading" && params.frameId && !t.loading) t.loading = true;
       if (ev === "Page.loadEventFired" || ev === "Page.frameStoppedLoading") t.loading = false;
+      if (ev === "Input.dragIntercepted") t.dragData = (params.data as Record<string, unknown>) ?? null;
+      if (ev === "Network.requestWillBeSent") {
+        const req = params.request as { url: string; method: string; postData?: string };
+        const e: NetEntry = { requestId: String(params.requestId), url: req.url, method: req.method, type: params.type as string | undefined, startedAt: Date.now(), postData: req.postData?.slice(0, 2000) };
+        t.net.push(e);
+        if (t.net.length > NET_LIMIT) t.net.splice(0, t.net.length - NET_LIMIT);
+      } else if (ev === "Network.responseReceived") {
+        const e = t.net.find((x) => x.requestId === params.requestId);
+        const res = params.response as { status: number; mimeType: string; fromDiskCache?: boolean };
+        if (e) {
+          e.status = res.status;
+          e.mimeType = res.mimeType;
+          e.fromCache = !!res.fromDiskCache;
+          e.type = (params.type as string | undefined) ?? e.type;
+        }
+      } else if (ev === "Network.loadingFinished") {
+        const e = t.net.find((x) => x.requestId === params.requestId);
+        if (e) {
+          e.endedAt = Date.now();
+          e.size = Number(params.encodedDataLength ?? 0);
+        }
+      } else if (ev === "Network.loadingFailed") {
+        const e = t.net.find((x) => x.requestId === params.requestId);
+        if (e) {
+          e.endedAt = Date.now();
+          e.failed = String(params.errorText ?? "failed");
+        }
+      }
     }
   }
 
   private register(targetId: string): TabState {
-    const t: TabState = { tabId: `tab${++this.tabSeq}`, targetId, loading: false };
+    const t: TabState = { tabId: `tab${++this.tabSeq}`, targetId, loading: false, net: [] };
     this.tabs.set(t.tabId, t);
     this.byTarget.set(targetId, t);
     return t;
@@ -441,6 +491,8 @@ export class BrowserController {
     this.bySession.set(sessionId, t);
     await this.send("Page.enable", {}, sessionId);
     await this.send("Runtime.enable", {}, sessionId);
+    // Request log for browser.network (headers only; bodies are fetched on demand while the tab lives).
+    await this.send("Network.enable", { maxTotalBufferSize: 20 * 1024 * 1024, maxResourceBufferSize: 5 * 1024 * 1024 }, sessionId).catch(() => {});
     // The Brave window is usually behind other windows; make the page behave as focused so key input lands.
     await this.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId).catch(() => {});
     return sessionId;
@@ -713,9 +765,82 @@ export class BrowserController {
         }
         return { tabId: t.tabId, found: false, error: `Timed out after ${timeout}ms waiting for ${target || JSON.stringify(text)}`, ...(await this.pageInfo(sid)) };
       }
+      case "drag": {
+        // Mouse drag from one element to another (or to x/y). If the page starts an HTML5 drag, Brave hands us
+        // the drag data (Input.dragIntercepted) and we finish it with dragEnter/dragOver/drop instead of a mouse release.
+        const from = await this.locate(sid, String(p.target ?? ""));
+        let to: { x: number; y: number; tag?: string; text?: string };
+        if (p.to) to = await this.locate(sid, String(p.to));
+        else if (p.x != null && p.y != null) to = { x: Number(p.x), y: Number(p.y) };
+        else throw new Error("drag needs `to` (ref/selector) or x and y");
+        t.dragData = undefined;
+        await this.send("Input.setInterceptDrags", { enabled: true }, sid).catch(() => {});
+        try {
+          await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: from.x, y: from.y }, sid);
+          await this.send("Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", clickCount: 1 }, sid);
+          const steps = 12;
+          for (let i = 1; i <= steps; i++) {
+            const x = from.x + ((to.x - from.x) * i) / steps;
+            const y = from.y + ((to.y - from.y) * i) / steps;
+            await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 }, sid);
+            await sleep(30);
+            if (t.dragData) break;
+          }
+          if (t.dragData) {
+            const data = t.dragData;
+            await this.send("Input.dispatchDragEvent", { type: "dragEnter", x: to.x, y: to.y, data }, sid);
+            await this.send("Input.dispatchDragEvent", { type: "dragOver", x: to.x, y: to.y, data }, sid);
+            await sleep(50);
+            await this.send("Input.dispatchDragEvent", { type: "drop", x: to.x, y: to.y, data }, sid);
+          } else {
+            await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: to.x, y: to.y, button: "left", buttons: 1 }, sid);
+            await sleep(80);
+            await this.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", clickCount: 1 }, sid);
+          }
+        } finally {
+          await this.send("Input.setInterceptDrags", { enabled: false }, sid).catch(() => {});
+        }
+        const html5 = !!t.dragData;
+        t.dragData = undefined;
+        await this.waitForLoad(t, 3000);
+        this.opts.log(`browser: drag ${String(p.target)} -> ${p.to ? String(p.to) : `${to.x},${to.y}`} (${html5 ? "html5" : "mouse"}) on ${t.tabId}`);
+        return { tabId: t.tabId, dragged: { tag: from.tag, text: from.text }, to: { tag: to.tag, text: to.text, x: Math.round(to.x), y: Math.round(to.y) }, mode: html5 ? "html5" : "mouse", ...(await this.pageInfo(sid)) };
+      }
       default:
         throw new Error(`Unknown browser action ${action}`);
     }
+  }
+
+  /** Network requests of a tab: list (filterable), one response body, or clear the log. */
+  async network(action: string, p: Record<string, unknown>, tabId?: string) {
+    const t = await this.tab(tabId);
+    const sid = await this.session(t);
+    if (action === "clear") {
+      const n = t.net.length;
+      t.net = [];
+      return { tabId: t.tabId, cleared: n };
+    }
+    if (action === "body") {
+      const id = String(p.requestId ?? "");
+      const e = t.net.find((x) => x.requestId === id);
+      if (!e) throw new Error(`Unknown requestId ${id} on ${t.tabId}; call network list first.`);
+      const r = await this.send<{ body: string; base64Encoded: boolean }>("Network.getResponseBody", { requestId: id }, sid, 20_000);
+      const max = Math.min(Math.max(Number(p.maxChars ?? 20_000), 1000), 200_000);
+      if (r.base64Encoded) {
+        const buf = Buffer.from(r.body, "base64");
+        const textual = !!e.mimeType && (e.mimeType.startsWith("text/") || e.mimeType.includes("json") || e.mimeType.includes("xml") || e.mimeType.includes("javascript"));
+        return { tabId: t.tabId, requestId: id, url: e.url, status: e.status, mimeType: e.mimeType, bytes: buf.length, binary: !textual, body: textual ? buf.toString("utf8").slice(0, max) : undefined };
+      }
+      return { tabId: t.tabId, requestId: id, url: e.url, status: e.status, mimeType: e.mimeType, bytes: Buffer.byteLength(r.body), truncated: r.body.length > max, body: r.body.slice(0, max) };
+    }
+    const filter = p.filter ? String(p.filter).toLowerCase() : "";
+    const types = Array.isArray(p.types) ? (p.types as string[]).map((x) => x.toLowerCase()) : [];
+    const limit = Math.min(Math.max(Number(p.limit ?? 60), 1), 400);
+    let list = t.net;
+    if (filter) list = list.filter((e) => e.url.toLowerCase().includes(filter) || (e.postData ?? "").toLowerCase().includes(filter));
+    if (types.length) list = list.filter((e) => types.includes((e.type ?? "").toLowerCase()));
+    const out = list.slice(-limit).map((e) => ({ requestId: e.requestId, method: e.method, url: e.url.length > 500 ? e.url.slice(0, 500) + "..." : e.url, type: e.type, status: e.status, mimeType: e.mimeType, bytes: e.size, ms: e.endedAt ? e.endedAt - e.startedAt : undefined, failed: e.failed, fromCache: e.fromCache || undefined, postData: p.includePostData ? e.postData : undefined }));
+    return { tabId: t.tabId, total: t.net.length, shown: out.length, requests: out, note: "action=body with a requestId returns the response content (JSON/HTML/text); bodies are only available while the tab is open." };
   }
 
   /** Raw HTML of the page or of one element (truncated at 60k chars). */

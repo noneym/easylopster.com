@@ -30,6 +30,9 @@ const CAP_LABELS: Record<string, string> = {
   "browser.cookies": "Browser: cookies (list/export/import/clear)",
   "browser.upload": "Browser: upload files from the shared folder",
   "browser.downloads": "Browser: list downloads",
+  "browser.network": "Browser: network requests and API responses",
+  "browser.profiles": "Browser: multiple Brave profiles",
+  "system.clipboard": "Clipboard (read with approval / write)",
   "exec.jobs": "Background jobs (status/log/kill)",
 };
 

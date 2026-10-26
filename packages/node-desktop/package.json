@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/node-desktop",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
   "description": "easylopster Node for Windows: a tray app that connects this PC to your easylopster.com account.",
   "productName": "easylopster Node",

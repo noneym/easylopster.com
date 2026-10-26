@@ -169,10 +169,56 @@ interface Job {
   endedAt?: number;
   exitCode?: number | null;
   logPath: string;
+  note?: string;
 }
 const jobs = new Map<string, Job>();
+let jobsLoaded = false;
+
+/** Jobs survive a node restart: the index is written to <workspace>/jobs/index.json and reloaded on first use. */
+async function saveJobs(root: string) {
+  const file = path.join(root, "jobs", "index.json");
+  await mkdir(path.dirname(file), { recursive: true });
+  const list = [...jobs.values()].slice(-200);
+  await writeFile(file, JSON.stringify(list, null, 1), "utf8").catch(() => {});
+}
+function pidAlive(pid: number) {
+  if (pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+async function loadJobs(root: string) {
+  if (jobsLoaded) return;
+  jobsLoaded = true;
+  const text = await readFile(path.join(root, "jobs", "index.json"), "utf8").catch(() => null);
+  if (!text) return;
+  let list: Job[] = [];
+  try {
+    list = JSON.parse(text) as Job[];
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  for (const j of list) {
+    if (!j?.id || jobs.has(j.id)) continue;
+    if (j.endedAt == null && !pidAlive(j.pid)) {
+      // Finished (or was killed) while the node app was not running; the exit code is unknown.
+      j.endedAt = now;
+      j.exitCode = null;
+      j.note = "ended while the node app was offline; exit code unknown, see the log";
+    } else if (j.endedAt == null) {
+      j.note = "started before the node app restarted; still running";
+    }
+    jobs.set(j.id, j);
+  }
+  await saveJobs(root);
+}
 
 async function execBackground(root: string, command: string, cwd?: string, extraEnv: Record<string, string> = {}) {
+  await loadJobs(root);
   const dir = cwd ? jail(root, cwd) : root;
   const jobsDir = path.join(root, "jobs");
   await mkdir(jobsDir, { recursive: true });
@@ -193,21 +239,27 @@ async function execBackground(root: string, command: string, cwd?: string, extra
   child.on("exit", (code) => {
     job.endedAt = Date.now();
     job.exitCode = code;
+    void saveJobs(root);
   });
   child.on("error", () => {
     job.endedAt = Date.now();
     job.exitCode = -1;
+    void saveJobs(root);
   });
   child.unref();
+  await saveJobs(root);
   return { jobId: id, pid: job.pid, logPath: `jobs/${id}.log`, note: "Running in the background. Check with exec.jobs (status / tail); the log file is in the shared folder." };
 }
 
 async function jobsCmd(root: string, action: string, jobId?: string, lines = 60) {
-  const view = (j: Job) => ({ jobId: j.id, pid: j.pid, command: j.command.slice(0, 200), startedAt: new Date(j.startedAt).toISOString(), running: j.endedAt == null, exitCode: j.exitCode ?? null, durationMs: (j.endedAt ?? Date.now()) - j.startedAt, logPath: path.relative(root, j.logPath).split(path.sep).join("/") });
+  await loadJobs(root);
+  // A job inherited from a previous run has no exit listener: notice when its process goes away.
+  for (const j of jobs.values()) if (j.endedAt == null && j.note && !pidAlive(j.pid)) { j.endedAt = Date.now(); j.exitCode = null; j.note = "ended; exit code unknown (started before the node app restarted), see the log"; void saveJobs(root); }
+  const view = (j: Job) => ({ jobId: j.id, pid: j.pid, command: j.command.slice(0, 200), startedAt: new Date(j.startedAt).toISOString(), running: j.endedAt == null, exitCode: j.exitCode ?? null, durationMs: (j.endedAt ?? Date.now()) - j.startedAt, logPath: path.relative(root, j.logPath).split(path.sep).join("/"), ...(j.note ? { note: j.note } : {}) });
   if (action === "list") return { jobs: [...jobs.values()].slice(-50).map(view) };
   if (!jobId) return { error: "jobId is required" };
   const j = jobs.get(jobId);
-  if (!j) return { error: `Unknown job ${jobId} (jobs are forgotten when the node app restarts; the log file may still exist under jobs/).` };
+  if (!j) return { error: `Unknown job ${jobId}; the log file may still exist under jobs/.` };
   if (action === "status") return view(j);
   if (action === "tail") {
     const text = await readFile(j.logPath, "utf8").catch(() => "");
@@ -224,6 +276,7 @@ async function jobsCmd(root: string, action: string, jobId?: string, lines = 60)
     }
     j.endedAt = Date.now();
     j.exitCode = -9;
+    await saveJobs(root);
     return { ...view(j), killed: true };
   }
   return { error: `Unknown action ${action}` };
