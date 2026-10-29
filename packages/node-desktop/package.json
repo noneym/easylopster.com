@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/node-desktop",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "easylopster Node for Windows: a tray app that connects this PC to your easylopster.com account.",
   "productName": "easylopster Node",
@@ -13,13 +13,13 @@
     "dist": "pnpm build && electron-builder --win --publish never",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
   "devDependencies": {
     "@easylopster/shared": "workspace:*",
     "@types/node": "^22.19.0",
     "easylopster-node": "workspace:*",
     "electron": "45.0.0",
     "electron-builder": "^26.18.0",
+    "electron-updater": "^6.8.11",
     "tsdown": "^0.23.2",
     "typescript": "^5.9.3",
     "ws": "^8.22.0",
@@ -29,6 +29,13 @@
     "appId": "com.easylopster.node",
     "productName": "easylopster Node",
     "artifactName": "easylopster-node-setup-${version}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "noneym",
+        "repo": "easylopster.com"
+      }
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"

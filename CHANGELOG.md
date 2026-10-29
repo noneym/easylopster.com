@@ -6,6 +6,18 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-29
+
+### Added
+- Windows tray app auto-update: the packaged app checks GitHub releases 30s after start and every
+  6 hours, downloads the new installer in the background and installs it on the next restart
+  (tray menu "Restart to update", "Check for updates"; the Settings window shows the state). The
+  release workflow now publishes latest.yml and the blockmap next to the installer.
+- Automatic Brave installation: when browser control is enabled (or a bot first uses a browser
+  tool) and brave.exe is missing, the tray app installs Brave by itself, with winget when present
+  and otherwise with Brave's installer run silently. A browser tool called meanwhile returns
+  "installing, try again in a minute"; the Settings window has an "Install Brave" button too.
+
 ## [1.6.0] - 2026-10-26
 
 ### Added
@@ -278,7 +290,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/noneym/easylopster.com/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/noneym/easylopster.com/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/noneym/easylopster.com/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/noneym/easylopster.com/compare/v1.4.0...v1.5.0

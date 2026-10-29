@@ -10,7 +10,7 @@ export default defineConfig([
     outDir: "dist",
     clean: true,
     dts: false,
-    noExternal: [/^@easylopster\//, /^easylopster-node/, "ws", "zod"],
+    noExternal: [/^@easylopster\//, /^easylopster-node/, "ws", "zod", /^electron-updater/, /^builder-util-runtime/],
     external: ["electron", "bufferutil", "utf-8-validate"],
     outExtensions: () => ({ js: ".cjs" }),
   },

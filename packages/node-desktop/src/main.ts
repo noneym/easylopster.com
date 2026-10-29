@@ -11,6 +11,8 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { DEFAULT_GATEWAY, VERSION, createNodeAgent, defaultConfigPath, defaultWorkspace, loadConfig, saveConfig, type AgentStatus, type NodeAgent, type NodeConfig } from "easylopster-node/agent";
 import { BROWSER_CAPS } from "@easylopster/shared/node-protocol";
 import { BrowserController, findBrave } from "./browser";
+import { braveInstallState, installBrave } from "./brave-install";
+import { checkForUpdatesNow, installUpdateNow, setupUpdater, updateState } from "./updater";
 
 const DASHBOARD_URL = "https://easylopster.com/dashboard/nodes";
 const isHidden = process.argv.includes("--hidden");
@@ -66,6 +68,8 @@ function publicState() {
     hostname: os.hostname(),
     bravePath: findBrave(settings.bravePath) ?? null,
     browserRunning: anyBrowserRunning(),
+    braveInstall: braveInstallState(),
+    update: updateState(),
   };
 }
 function pushState() {
@@ -104,11 +108,21 @@ function getBrowser(profile = "default") {
       profileDir: profileDir(profile),
       workspace: () => config.workspace,
       bravePath: () => settings.bravePath,
+      installBrave: () => startBraveInstall(),
       log: (line) => log(profile === "default" ? line : line.replace(/^browser:/, `browser[${profile}]:`)),
     });
     browsers.set(profile, b);
   }
   return b;
+}
+/** Kicks off the Brave installation unless one is running or just failed; returns the current state. */
+function startBraveInstall() {
+  const st = braveInstallState();
+  if (st.running) return st;
+  if (st.error && st.finishedAt && Date.now() - st.finishedAt < 10 * 60_000) return st; // do not hammer a failing install
+  void installBrave(log).then(() => pushState());
+  pushState();
+  return braveInstallState();
 }
 function anyBrowserRunning() {
   for (const b of browsers.values()) if (b.running) return true;
@@ -244,6 +258,9 @@ function updateTray() {
       { label: "Browser control (Brave)", type: "checkbox", checked: settings.browser, click: (item) => void setBrowser(item.checked) },
       ...(anyBrowserRunning() ? [{ label: "Close controlled Brave", click: () => void closeBrowser() }] : []),
       { type: "separator" },
+      ...(updateState().downloaded
+        ? [{ label: `Restart to update to ${updateState().downloaded}`, click: () => installUpdateNow() }]
+        : [{ label: updateState().checking ? "Checking for updates…" : updateState().available ? `Downloading ${updateState().available}…` : `Check for updates (v${VERSION})`, enabled: !updateState().checking && !updateState().available && app.isPackaged, click: () => checkForUpdatesNow() }]),
       { label: "Quit", click: () => quit() },
     ]),
   );
@@ -262,6 +279,7 @@ async function setBrowser(on: boolean) {
   settings.browser = on;
   await persistSettings();
   log(`browser control ${on ? "enabled" : "disabled"}${on ? ` (${findBrave(settings.bravePath) ?? "brave.exe not found"})` : ""}`);
+  if (on && !findBrave(settings.bravePath)) startBraveInstall();
   if (!on) await closeBrowser();
   if (agent && status.state !== "stopped") await startAgent();
   pushState();
@@ -356,6 +374,18 @@ ipcMain.handle("browser:close", async () => {
   await closeBrowser();
   return publicState();
 });
+ipcMain.handle("browser:install", async () => {
+  startBraveInstall();
+  return publicState();
+});
+ipcMain.handle("update:check", async () => {
+  checkForUpdatesNow();
+  return publicState();
+});
+ipcMain.handle("update:install", async () => {
+  installUpdateNow();
+  return publicState();
+});
 ipcMain.handle("settings:set", async (_e, patch: { name?: string; gateway?: string; autostart?: boolean; browser?: boolean }) => {
   let restart = false;
   if (typeof patch.name === "string" && patch.name.trim() && patch.name.trim() !== config.name) {
@@ -410,6 +440,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!isHidden || !config.token) showWindow();
 
     log(`easylopster Node ${VERSION} started (config ${configPath})`);
+    setupUpdater(log, pushState);
     if (config.token) await startAgent();
   });
 

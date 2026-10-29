@@ -10,6 +10,9 @@ const api = {
   setSettings: (patch: { name?: string; gateway?: string; autostart?: boolean; browser?: boolean }) => ipcRenderer.invoke("settings:set", patch),
   pickBrave: () => ipcRenderer.invoke("browser:pick"),
   closeBrowser: () => ipcRenderer.invoke("browser:close"),
+  installBrave: () => ipcRenderer.invoke("browser:install"),
+  checkUpdate: () => ipcRenderer.invoke("update:check"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
   open: (what: "folder" | "dashboard" | "logs" | "config") => ipcRenderer.invoke("open", what),
   onState: (cb: (s: unknown) => void) => {
     ipcRenderer.on("state", (_e, s) => cb(s));

@@ -76,4 +76,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           name: easylopster ${{ github.ref_name }}
-          files: packages/node-desktop/release/*.exe
+          files: |
+            packages/node-desktop/release/*.exe
+            packages/node-desktop/release/*.blockmap
+            packages/node-desktop/release/latest.yml

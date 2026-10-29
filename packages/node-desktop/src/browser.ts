@@ -26,6 +26,8 @@ export interface BrowserOptions {
   workspace: () => string;
   /** Explicit brave.exe path chosen by the user, if any. */
   bravePath: () => string | undefined;
+  /** Starts (or reports) the automatic Brave installation when brave.exe is missing. */
+  installBrave?: () => { running: boolean; method?: string; error?: string };
   log: (line: string) => void;
 }
 
@@ -279,7 +281,15 @@ export class BrowserController {
   }
 
   private async launch() {
-    const exe = findBrave(this.opts.bravePath());
+    let exe = findBrave(this.opts.bravePath());
+    if (!exe && this.opts.installBrave) {
+      // Missing Brave is installed automatically (winget, else Brave's standalone installer). That takes a
+      // minute or two, longer than a tool call: start it and tell the agent to retry.
+      const st = this.opts.installBrave();
+      if (st.running) throw new Error(`Brave is not installed on this PC yet; easylopster Node is installing it right now (${st.method ?? "starting"}). Try again in about a minute.`);
+      if (st.error) throw new Error(`Brave is not installed and the automatic install failed: ${st.error}. Ask the owner to install Brave (brave.com) or to pick brave.exe in easylopster Node → Settings.`);
+      exe = findBrave(this.opts.bravePath());
+    }
     if (!exe) throw new Error("Brave is not installed (or not found). Pick brave.exe in easylopster Node → Settings → Browser.");
     await mkdir(this.opts.profileDir, { recursive: true });
     this.port = await freePort();
