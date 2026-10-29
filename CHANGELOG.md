@@ -6,6 +6,20 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-29
+
+### Added
+- Live activity status in every chat: while a reply is being worked on, Telegram shows one status
+  message (edited in place, deleted when the answer arrives) listing the tool calls of the run with
+  a short argument summary (URL, command, path), finished steps with their duration, the running step
+  with a ticking elapsed time and a thinking/writing line. It is shown in all streaming modes, not
+  only "progress", so a long browser or exec step is never silent. The web chat shows the same step
+  list with elapsed times.
+
+### Changed
+- Tool progress events carry the tool-call id, an argument preview, duration and success flag
+  (failed tool calls are marked ⚠️).
+
 ## [1.7.0] - 2026-10-29
 
 ### Added
@@ -290,7 +304,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/noneym/easylopster.com/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/noneym/easylopster.com/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/noneym/easylopster.com/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/noneym/easylopster.com/compare/v1.5.0...v1.5.1

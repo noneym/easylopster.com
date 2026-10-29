@@ -407,8 +407,11 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
   const streamOpts = { threadId: m.message_thread_id, replyTo };
   const draft = bot.streaming === "partial" ? tg.draft(m.chat.id, streamOpts) : null;
   const block = bot.streaming === "block" ? tg.blockStream(m.chat.id, streamOpts) : null;
-  const progress = bot.streaming === "progress" ? tg.progressStream(m.chat.id, streamOpts) : null;
-  progress?.thinking();
+  // Every mode gets a live status message (steps, elapsed time) so a long tool run is never silent;
+  // in "progress" mode that message is also the only thing shown until the final answer.
+  const status = tg.statusStream(m.chat.id, streamOpts, { sendsFinal: bot.streaming === "progress" });
+  const progress = bot.streaming === "progress" ? status : null;
+  status.thinking();
   const live = draft ?? block ?? progress;
 
   try {
@@ -425,10 +428,21 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
       nodes,
       approvalChannel: { kind: "telegram", sender: tg, chatId: m.chat.id, threadId: m.message_thread_id },
       images: media.images,
-      onDelta: draft ? (t) => draft.update(t) : block ? (t) => block.update(t) : progress ? (t) => progress.writing(t) : undefined,
-      onTool: progress ? (name, status) => (status === "start" ? progress.tool(name) : progress.thinking()) : undefined,
+      onDelta: draft
+        ? (t) => {
+            draft.update(t);
+            status.writing();
+          }
+        : block
+          ? (t) => {
+              block.update(t);
+              status.writing();
+            }
+          : (t) => status.writing(t),
+      onTool: (ev) => status.tool(ev),
     });
     stopTyping();
+    if (!progress) await status.discard();
     if (out.silent || (!out.text && out.media.length === 0)) {
       await live?.discard();
       return;
@@ -440,6 +454,7 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
     if (out.media.length) await sendMedia(tg.api, m.chat.id, ws, out.media, m.message_thread_id);
   } catch (err) {
     stopTyping();
+    await status.discard();
     await live?.discard();
     const msg = err instanceof Error ? err.message : String(err);
     log(`run failed bot=${bot.id}: ${msg}`);

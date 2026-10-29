@@ -55,7 +55,7 @@ export async function handleInbound(job: InboundJob, _ctx: InboundContext): Prom
       nodes: _ctx.nodes,
       approvalChannel: { kind: "web", conversationId: conversation.id },
       onDelta: (t) => void publishChat(conversation.id, { type: "delta", text: t }),
-      onTool: (name, status) => void publishChat(conversation.id, { type: "tool", name, status }),
+      onTool: (ev) => void publishChat(conversation.id, { type: "tool", ...ev }),
     });
     const finalText = out.media.length ? `${out.text}${out.text ? "\n\n" : ""}${out.media.map((m) => `📎 ${m}`).join("\n")}` : out.text;
     await publishChat(conversation.id, { type: "final", text: finalText, messageId: out.messageId, context: out.context } as never);

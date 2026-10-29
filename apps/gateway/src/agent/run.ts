@@ -28,6 +28,35 @@ import { webSearchTools } from "./web-search.ts";
 import { extractMedia } from "../telegram/media.ts";
 import { getOrCreateConversation } from "./session.ts";
 
+/** Live progress of one tool call, for the "what is the bot doing" status in chats. */
+export interface ToolProgress {
+  id: string;
+  name: string;
+  status: "start" | "end";
+  /** Short human summary of the arguments (URL, command, path…). */
+  preview?: string;
+  ms?: number;
+  ok?: boolean;
+}
+
+const PREVIEW_BARE = new Set(["url", "command", "cmd", "path", "query", "task"]);
+const PREVIEW_KEYS = ["url", "command", "cmd", "path", "query", "task", "text", "target", "selector", "name", "action", "prompt", "message", "to", "subject", "q"];
+/** One-line argument summary for status lines; never the full payload (it may be long or sensitive). */
+export function toolPreview(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return typeof input === "string" ? input.slice(0, 60) : undefined;
+  const obj = input as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const k of PREVIEW_KEYS) {
+    const v = obj[k];
+    if (typeof v === "string" && v.trim()) parts.push(PREVIEW_BARE.has(k) ? v.trim() : `${k}=${v.trim()}`);
+    else if (typeof v === "number" || typeof v === "boolean") parts.push(`${k}=${v}`);
+    if (parts.length >= 2) break;
+  }
+  const s = (parts.length ? parts.join(" ") : JSON.stringify(obj)).replace(/\s+/g, " ");
+  if (!s || s === "{}") return undefined;
+  return s.length > 70 ? `${s.slice(0, 69)}…` : s;
+}
+
 export interface RunInput {
   bot: Bot & { providerKey: ProviderKey | null; user: { id: string; timezone: string } };
   conversation: Conversation;
@@ -44,7 +73,7 @@ export interface RunInput {
   nodes?: NodeServer;
   approvalChannel?: ApprovalChannel;
   onDelta?: (fullText: string) => void;
-  onTool?: (name: string, status: "start" | "end") => void;
+  onTool?: (ev: ToolProgress) => void;
   /** Inbound images (vision) */
   images?: { data: Buffer; mimeType: string }[];
   /** Extra runtime-context lines */
@@ -232,7 +261,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
 
   let text = "";
   let toolCalls = 0;
-  const toolStarted = new Map<string, number>();
+  const toolStarted = new Map<string, { name: string; at: number; preview?: string }>();
   let tokensIn = 0;
   let tokensOut = 0;
   let error: string | undefined;
@@ -259,17 +288,26 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
           text += p.text ?? p.delta ?? "";
           input.onDelta?.(text);
           break;
-        case "tool-call":
+        case "tool-call": {
           toolCalls++;
-          toolStarted.set(p.toolName ?? "tool", Date.now());
-          input.onTool?.(p.toolName ?? "tool", "start");
-          break;
-        case "tool-result": {
           const name = p.toolName ?? "tool";
-          const ms = Date.now() - (toolStarted.get(name) ?? Date.now());
-          const out = JSON.stringify((p as { output?: unknown }).output ?? "").slice(0, 160);
-          console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tool=${name} ${ms}ms -> ${out}`);
-          input.onTool?.(name, "end");
+          const id = (p as { toolCallId?: string }).toolCallId ?? `${name}#${toolCalls}`;
+          const preview = toolPreview((p as { input?: unknown }).input);
+          toolStarted.set(id, { name, at: Date.now(), preview });
+          input.onTool?.({ id, name, status: "start", preview });
+          break;
+        }
+        case "tool-result":
+        case "tool-error": {
+          const name = p.toolName ?? "tool";
+          const id = (p as { toolCallId?: string }).toolCallId ?? name;
+          const started = toolStarted.get(id);
+          const ms = Date.now() - (started?.at ?? Date.now());
+          const output = (p as { output?: unknown }).output;
+          const ok = p.type === "tool-result" && !(output && typeof output === "object" && "error" in (output as object) && (output as { error?: unknown }).error);
+          const out = JSON.stringify(p.type === "tool-error" ? String(p.error) : (output ?? "")).slice(0, 160);
+          console.log(`[run] ${new Date().toISOString()} bot=${bot.id} tool=${name} ${ms}ms${ok ? "" : " FAILED"} -> ${out}`);
+          input.onTool?.({ id, name, status: "end", preview: started?.preview, ms, ok });
           break;
         }
         case "error":

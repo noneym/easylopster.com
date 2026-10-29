@@ -5,6 +5,19 @@ import { htmlToPlainText, markdownToTelegramHtml, splitTelegramHtml } from "./fo
  * Outbound Telegram helpers over grammY's Api (no polling). HTML parse mode with a plain-text
  * fallback, 4000-char chunking, typing keepalive, and a throttled draft editor for streaming.
  */
+/** "node_bravepc_browser_open" → "bravepc › browser_open"; other tools keep their name. */
+export function prettyToolName(name: string): string {
+  const m = name.match(/^node_([a-z0-9]+)_(.+)$/i);
+  return m ? `${m[1]} › ${m[2]}` : name;
+}
+
+export function fmtDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${s % 60}s`;
+}
+
 export class TelegramSender {
   readonly api: Api;
   constructor(token: string) {
@@ -104,18 +117,24 @@ export class TelegramSender {
   }
 
   /**
-   * "progress" streaming: one status message shows what the bot is doing (thinking, running a
-   * tool, writing); on finish it is deleted and the final answer arrives as a fresh message, so the
-   * owner gets exactly one notification with the complete reply.
+   * Live status message: what the bot is doing right now. Lists the tool calls of this run (done ones
+   * with their duration, the running one with a ticking elapsed time) plus a thinking/writing line, so
+   * a long browser or exec step is never silent. Edited in place (≥1.5s apart), deleted at the end.
+   * With `sendsFinal` ("progress" streaming mode) `finish(text)` also sends the final answer as a
+   * fresh message; otherwise the draft/block stream or a plain send delivers the answer.
    */
-  progressStream(chatId: string | number, opts: { threadId?: number; replyTo?: number } = {}) {
+  statusStream(chatId: string | number, opts: { threadId?: number; replyTo?: number } = {}, cfg: { sendsFinal: boolean } = { sendsFinal: false }) {
     const self = this;
+    const startedAt = Date.now();
     let messageId: number | null = null;
     let lastSent = "";
     let pending = "";
     let timer: NodeJS.Timeout | null = null;
     let inflight: Promise<void> = Promise.resolve();
     let stopped = false;
+    let phase: "thinking" | "writing" = "thinking";
+    let writingText = "";
+    const steps: { id: string; name: string; preview?: string; at: number; ms?: number; ok?: boolean }[] = [];
     const flush = async () => {
       timer = null;
       const text = pending;
@@ -123,9 +142,9 @@ export class TelegramSender {
       inflight = inflight.then(async () => {
         try {
           if (messageId == null) {
-            const m = await self.api.sendMessage(chatId, text, { message_thread_id: opts.threadId && opts.threadId !== 1 ? opts.threadId : undefined, disable_notification: true });
+            const m = await self.api.sendMessage(chatId, text, { message_thread_id: opts.threadId && opts.threadId !== 1 ? opts.threadId : undefined, disable_notification: true, link_preview_options: { is_disabled: true } });
             messageId = m.message_id;
-          } else await self.api.editMessageText(chatId, messageId, text);
+          } else await self.api.editMessageText(chatId, messageId, text, { link_preview_options: { is_disabled: true } });
           lastSent = text;
         } catch (err) {
           if (!(err instanceof GrammyError && /message is not modified/i.test(err.description))) messageId = messageId ?? null;
@@ -133,34 +152,64 @@ export class TelegramSender {
       });
       await inflight;
     };
-    const set = (text: string) => {
+    const render = () => {
       if (stopped) return;
-      pending = text.slice(0, 300);
+      const lines = steps.slice(-8).map((s) => {
+        const label = `${prettyToolName(s.name)}${s.preview ? ` ${s.preview}` : ""}`;
+        return s.ms == null ? `🔧 ${label} … ${fmtDuration(Date.now() - s.at)}` : `${s.ok === false ? "⚠️" : "✅"} ${label} (${fmtDuration(s.ms)})`;
+      });
+      if (steps.length > 8) lines.unshift(`… ${steps.length - 8} earlier step${steps.length - 8 === 1 ? "" : "s"}`);
+      const running = steps.some((s) => s.ms == null);
+      const total = fmtDuration(Date.now() - startedAt);
+      if (!running) {
+        if (phase === "writing") lines.push(cfg.sendsFinal && writingText ? `✍️ ${writingText}` : `✍️ Writing… (${total})`);
+        else lines.push(`⏳ Thinking… (${total})`);
+      } else if (phase === "writing" && cfg.sendsFinal && writingText) lines.push(`✍️ ${writingText}`);
+      pending = lines.join("\n").slice(0, 1000);
       if (!timer) timer = setTimeout(() => void flush(), messageId == null ? 0 : 1500);
+    };
+    // Heartbeat: the elapsed time keeps moving even when nothing else changes, so a stuck-looking
+    // step is visibly still alive (Telegram tolerates an edit every few seconds per message).
+    const heartbeat = setInterval(render, 5000);
+    heartbeat.unref();
+    const stop = async () => {
+      stopped = true;
+      clearInterval(heartbeat);
+      if (timer) clearTimeout(timer);
+      await inflight;
+      if (messageId != null) await self.api.deleteMessage(chatId, messageId).catch(() => {});
     };
     return {
       thinking() {
-        set("⏳ Thinking…");
+        phase = "thinking";
+        render();
       },
-      tool(name: string) {
-        set(`🔧 Running ${name}…`);
+      tool(ev: { id: string; name: string; status: "start" | "end"; preview?: string; ms?: number; ok?: boolean }) {
+        if (ev.status === "start") steps.push({ id: ev.id, name: ev.name, preview: ev.preview, at: Date.now() });
+        else {
+          const s = steps.find((x) => x.id === ev.id && x.ms == null) ?? steps.find((x) => x.name === ev.name && x.ms == null);
+          if (s) {
+            s.ms = ev.ms ?? Date.now() - s.at;
+            s.ok = ev.ok;
+          }
+        }
+        phase = "thinking";
+        render();
       },
-      writing(text: string) {
-        const t = text.replace(/\s+/g, " ").trim();
-        set(t ? `✍️ ${t.slice(0, 120)}${t.length > 120 ? "…" : ""}` : "✍️ Writing…");
+      writing(text?: string) {
+        phase = "writing";
+        if (text != null) {
+          const t = text.replace(/\s+/g, " ").trim();
+          writingText = t ? `${t.slice(0, 120)}${t.length > 120 ? "…" : ""}` : "";
+        }
+        render();
       },
       async finish(finalMarkdown: string): Promise<number[]> {
-        stopped = true;
-        if (timer) clearTimeout(timer);
-        await inflight;
-        if (messageId != null) await self.api.deleteMessage(chatId, messageId).catch(() => {});
-        return self.sendMarkdown(chatId, finalMarkdown, opts);
+        await stop();
+        return cfg.sendsFinal ? self.sendMarkdown(chatId, finalMarkdown, opts) : [];
       },
       async discard() {
-        stopped = true;
-        if (timer) clearTimeout(timer);
-        await inflight;
-        if (messageId != null) await self.api.deleteMessage(chatId, messageId).catch(() => {});
+        await stop();
       },
     };
   }

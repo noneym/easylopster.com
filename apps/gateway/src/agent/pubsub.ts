@@ -3,7 +3,7 @@ import { redis, createRedis } from "../redis.ts";
 /** Web-chat streaming goes through Redis pub/sub: gateway publishes, the web app's SSE route subscribes. */
 export type ChatEvent =
   | { type: "delta"; text: string }
-  | { type: "tool"; name: string; status: "start" | "end" }
+  | { type: "tool"; id: string; name: string; status: "start" | "end"; preview?: string; ms?: number; ok?: boolean }
   | { type: "final"; text: string; messageId: string }
   | { type: "approval"; id: string; target?: string; preview?: string; status: "pending" | "approved" | "denied" | "expired" }
   | { type: "error"; message: string };

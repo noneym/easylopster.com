@@ -1,12 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ArrowUpIcon, WrenchIcon } from "@phosphor-icons/react";
+import { ArrowUpIcon, CheckIcon, WarningIcon, WrenchIcon } from "@phosphor-icons/react";
 import { decideWebApproval, listWebMessages, resetWebConversation, sendWebMessage } from "./actions";
 import { Markdown } from "@/components/app/markdown";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string; error?: string | null };
 type Approval = { id: string; target?: string; preview?: string; status: string; canAlways?: boolean };
+/** One tool call of the current run, for the live "what is the bot doing" status. */
+type Step = { id: string; name: string; preview?: string; at: number; ms?: number; ok?: boolean };
+
+/** "node_bravepc_browser_open" → "bravepc › browser_open". */
+function prettyToolName(name: string) {
+  const m = name.match(/^node_([a-z0-9]+)_(.+)$/i);
+  return m ? `${m[1]} › ${m[2]}` : name;
+}
+function fmtDuration(ms: number) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
 
 export function ChatClient({ botId, conversationId: initialConv, initial, initialBusy = false, initialContext }: { botId: string; conversationId: string; initial: Msg[]; initialBusy?: boolean; initialContext?: { used: number; window: number } | null }) {
   const [context, setContext] = useState(initialContext ?? null);
@@ -14,7 +26,9 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
   const [messages, setMessages] = useState<Msg[]>(initial);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(initialBusy);
-  const [tool, setTool] = useState<string | null>(null);
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [runStarted, setRunStarted] = useState<number | null>(initialBusy ? Date.now() : null);
+  const [, setTick] = useState(0);
   const [streamText, setStreamText] = useState("");
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [pending, start] = useTransition();
@@ -26,7 +40,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
     const es = new EventSource(`/api/chat/${conversationId}/stream`);
     esRef.current = es;
     es.onmessage = (e) => {
-      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string; canAlways?: boolean; context?: { used: number; window: number } };
+      const ev = JSON.parse(e.data) as { type: string; text?: string; name?: string; status?: string; message?: string; messageId?: string; id?: string; target?: string; preview?: string; ms?: number; ok?: boolean; canAlways?: boolean; context?: { used: number; window: number } };
       if (ev.type === "delta") {
         setStreamText(ev.text ?? "");
       } else if (ev.type === "approval" && ev.id) {
@@ -36,18 +50,24 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
           return i >= 0 ? prev.map((a) => (a.id === ev.id ? next : a)) : [...prev, next];
         });
       } else if (ev.type === "tool") {
-        setTool(ev.status === "start" ? ev.name ?? "tool" : null);
+        setRunStarted((s) => s ?? Date.now());
+        setSteps((prev) => {
+          if (ev.status === "start") return [...prev, { id: ev.id ?? `${ev.name}-${Date.now()}`, name: ev.name ?? "tool", preview: ev.preview, at: Date.now() }];
+          const i = prev.findIndex((s) => s.ms == null && (s.id === ev.id || s.name === ev.name));
+          if (i < 0) return prev;
+          return prev.map((s, j) => (j === i ? { ...s, ms: ev.ms ?? Date.now() - s.at, ok: ev.ok } : s));
+        });
       } else if (ev.type === "final") {
         if (ev.context) setContext(ev.context);
         const final: Msg = { id: ev.messageId ?? `m-${Date.now()}`, role: "assistant", text: ev.text ?? "" };
         setMessages((prev) => (prev.some((m) => m.id === final.id) || !ev.text ? prev : [...prev, final]));
         setStreamText("");
-        setTool(null);
+        setSteps([]);
         setBusy(false);
       } else if (ev.type === "error") {
         setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: "", error: ev.message }]);
         setStreamText("");
-        setTool(null);
+        setSteps([]);
         setBusy(false);
       }
     };
@@ -59,7 +79,18 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages, tool, streamText, approvals]);
+  }, [messages, steps, streamText, approvals]);
+
+  // Elapsed-time ticker while a reply is pending, so the status never looks frozen.
+  useEffect(() => {
+    if (!busy) {
+      setRunStarted(null);
+      return;
+    }
+    setRunStarted((s) => s ?? Date.now());
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
 
   // Catch-up poll while a reply is pending: if the SSE stream missed the final event (reconnect, dev
   // route compile, tab in background) the stored messages still arrive.
@@ -80,7 +111,7 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
       if (failedUser) setMessages((prev) => (prev.some((m) => m.id === `err-${failedUser.id}`) ? prev : [...prev, { id: `err-${failedUser.id}`, role: "assistant", text: "", error: failedUser.error }]));
       if (!r.busy) {
         setStreamText("");
-        setTool(null);
+        setSteps([]);
         setBusy(false);
       }
     }, 4000);
@@ -91,6 +122,8 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
     const text = draft.trim();
     if (!text || busy) return;
     setDraft("");
+    setSteps([]);
+    setRunStarted(Date.now());
     setBusy(true);
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text }]);
     start(async () => {
@@ -165,31 +198,31 @@ export function ChatClient({ botId, conversationId: initialConv, initial, initia
             </div>
           </div>
         )}
-        {busy && !streamText && (
+        {busy && (
           <div className="flex justify-start" aria-live="polite">
-            <div className="inline-flex items-center gap-2.5 rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2.5 text-sm text-fg-muted">
-              {tool ? (
-                <>
-                  <WrenchIcon size={14} className="text-accent-ink" />
-                  <span>
-                    Running <span className="font-mono text-fg">{tool}</span>
+            <div className="max-w-[85%] rounded-lg rounded-bl-sm bg-bg-sunk px-3.5 py-2.5 text-sm text-fg-muted space-y-1">
+              {steps.length > 8 && <p className="text-xs text-fg-faint">… {steps.length - 8} earlier steps</p>}
+              {steps.slice(-8).map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-xs font-mono min-w-0">
+                  {s.ms == null ? <WrenchIcon size={13} className="shrink-0 text-accent-ink animate-pulse" /> : s.ok === false ? <WarningIcon size={13} className="shrink-0 text-amber-600" /> : <CheckIcon size={13} className="shrink-0 text-emerald-600" />}
+                  <span className="text-fg shrink-0">{prettyToolName(s.name)}</span>
+                  {s.preview && <span className="truncate text-fg-muted">{s.preview}</span>}
+                  <span className="shrink-0 text-fg-faint tabular-nums">{s.ms == null ? fmtDuration(Date.now() - s.at) : fmtDuration(s.ms)}</span>
+                </div>
+              ))}
+              {!steps.some((s) => s.ms == null) && (
+                <div className="inline-flex items-center gap-2.5">
+                  <span>{streamText ? "Writing" : "Thinking"}</span>
+                  <span className="inline-flex gap-1" aria-hidden>
+                    <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.3s]" />
+                    <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.15s]" />
+                    <span className="size-1.5 rounded-full bg-fg-faint animate-bounce" />
                   </span>
-                </>
-              ) : (
-                <span>Thinking</span>
+                  {runStarted && <span className="text-xs text-fg-faint tabular-nums">{fmtDuration(Date.now() - runStarted)}</span>}
+                </div>
               )}
-              <span className="inline-flex gap-1" aria-hidden>
-                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.3s]" />
-                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce [animation-delay:-0.15s]" />
-                <span className="size-1.5 rounded-full bg-fg-faint animate-bounce" />
-              </span>
             </div>
           </div>
-        )}
-        {tool && streamText && (
-          <p className="inline-flex items-center gap-2 text-xs text-fg-muted font-mono">
-            <WrenchIcon size={12} /> {tool}
-          </p>
         )}
         <div ref={bottom} />
       </div>
