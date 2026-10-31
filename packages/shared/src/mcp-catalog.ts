@@ -44,7 +44,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     transport: "streamable-http",
     url: "https://mcp.cloudflare.com/mcp",
     headers: "Authorization: Bearer <CLOUDFLARE_API_TOKEN>",
-    auth: "Cloudflare dashboard → My Profile → API Tokens (user or account token with the permissions you want the bot to have).",
+    auth: "Easiest: delete the header line, press Test and sign in with Cloudflare (OAuth). With a token instead: Cloudflare dashboard → My Profile → API Tokens; besides the permissions you want the bot to have it must include Account → Account Settings → Read (or User → User Details → Read), otherwise the server answers \"insufficient_scope\".",
     docs: "https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/",
   },
   {
@@ -67,7 +67,7 @@ export const MCP_CATALOG: McpCatalogEntry[] = [
     transport: "streamable-http",
     url: "https://browser.mcp.cloudflare.com/mcp",
     headers: "Authorization: Bearer <CLOUDFLARE_API_TOKEN>",
-    auth: "Cloudflare API token with Browser Rendering permission (OAuth is the documented path; the token header works for API-token-enabled servers).",
+    auth: "Delete the header line and sign in with Cloudflare (OAuth), or use an API token with Browser Rendering permission plus Account → Account Settings → Read.",
     docs: "https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/",
   },
   {
