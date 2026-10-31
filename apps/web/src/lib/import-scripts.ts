@@ -46,12 +46,73 @@ const home = os.homedir();
 const expand = (p) => (typeof p === "string" ? p.replace(/^~(?=$|[\\/])/, home) : "");
 const stateDir = () => stateArg || path.join(home, ".openclaw");
 
-// openclaw.json is JSON5-ish (comments, trailing commas): strip the common extras before parsing.
+// openclaw.json is JSON5 (comments, trailing commas, unquoted keys, single quotes): a small
+// recursive-descent parser covers what config files use; plain JSON is tried first.
 function parseLoose(raw) {
   try { return JSON.parse(raw); } catch {}
-  const noComments = raw.replace(/\\/\\*[\\s\\S]*?\\*\\//g, "").replace(/(^|[^:"'\\\\])\\/\\/.*$/gm, "$1");
-  const noTrailing = noComments.replace(/,(\\s*[}\\]])/g, "$1");
-  try { return JSON.parse(noTrailing); } catch { return null; }
+  let i = 0;
+  const n = raw.length;
+  const ws = () => {
+    for (;;) {
+      while (i < n && /[\\s\\uFEFF]/.test(raw[i])) i++;
+      if (raw.startsWith("//", i)) { while (i < n && raw[i] !== "\\n") i++; continue; }
+      if (raw.startsWith("/*", i)) { const e = raw.indexOf("*/", i + 2); i = e < 0 ? n : e + 2; continue; }
+      break;
+    }
+  };
+  const str = () => {
+    const q = raw[i++];
+    let out = "";
+    while (i < n && raw[i] !== q) {
+      if (raw[i] === "\\\\") {
+        const c = raw[++i];
+        const map = { n: "\\n", t: "\\t", r: "\\r", b: "\\b", f: "\\f", v: "\\v", 0: "\\0", "\\n": "" };
+        if (c === "u") { out += String.fromCharCode(parseInt(raw.slice(i + 1, i + 5), 16)); i += 5; continue; }
+        if (c === "x") { out += String.fromCharCode(parseInt(raw.slice(i + 1, i + 3), 16)); i += 3; continue; }
+        out += c in map ? map[c] : c;
+        i++;
+      } else out += raw[i++];
+    }
+    i++;
+    return out;
+  };
+  const ident = () => { const m = /^[A-Za-z_$][\\w$]*/.exec(raw.slice(i)); if (!m) throw new Error("bad key at " + i); i += m[0].length; return m[0]; };
+  const value = () => {
+    ws();
+    const c = raw[i];
+    if (c === "{") {
+      i++; const o = {};
+      for (;;) {
+        ws();
+        if (raw[i] === "}") { i++; return o; }
+        const k = raw[i] === '"' || raw[i] === "'" ? str() : ident();
+        ws(); if (raw[i] !== ":") throw new Error("expected : at " + i); i++;
+        o[k] = value(); ws();
+        if (raw[i] === ",") { i++; continue; }
+        if (raw[i] === "}") { i++; return o; }
+        throw new Error("expected , or } at " + i);
+      }
+    }
+    if (c === "[") {
+      i++; const a = [];
+      for (;;) {
+        ws();
+        if (raw[i] === "]") { i++; return a; }
+        a.push(value()); ws();
+        if (raw[i] === ",") { i++; continue; }
+        if (raw[i] === "]") { i++; return a; }
+        throw new Error("expected , or ] at " + i);
+      }
+    }
+    if (c === '"' || c === "'") return str();
+    const m = /^(?:[+-]?(?:Infinity|NaN|0x[0-9a-fA-F]+|(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?)|true|false|null)/.exec(raw.slice(i));
+    if (!m) throw new Error("unexpected token at " + i);
+    i += m[0].length;
+    const t = m[0];
+    if (t === "true") return true; if (t === "false") return false; if (t === "null") return null;
+    return Number(t.replace(/^\\+/, ""));
+  };
+  try { const v = value(); ws(); return i >= n ? v : null; } catch { return null; }
 }
 function readJson(p) { try { return parseLoose(fs.readFileSync(p, "utf8")); } catch { return null; } }
 function readEnvFile(p) {

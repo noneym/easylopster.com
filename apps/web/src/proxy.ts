@@ -17,6 +17,14 @@ export function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
   if ((pathname === "/login" || pathname === "/register") && hasSession) {
+    // requireUser sends a browser here with ?stale=1 when its cookie no longer matches a session
+    // (deleted account, expired row): drop the cookie instead of bouncing it back to /dashboard.
+    if (req.nextUrl.searchParams.has("stale")) {
+      const res = NextResponse.next();
+      res.cookies.delete(SESSION_COOKIE);
+      res.cookies.delete("el_admin_session");
+      return res;
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

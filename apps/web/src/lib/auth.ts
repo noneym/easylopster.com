@@ -92,7 +92,12 @@ export const getCurrentUser = cache(async () => {
 /** For server components/actions under /dashboard: returns the user or throws a redirect. */
 export async function requireUser() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    // A cookie without a live session would loop (/login → /dashboard → here); ?stale=1 makes the
+    // proxy clear it. Server components cannot touch cookies themselves.
+    const jar = await cookies();
+    redirect(jar.get(SESSION_COOKIE)?.value ? "/login?stale=1" : "/login");
+  }
   return user;
 }
 

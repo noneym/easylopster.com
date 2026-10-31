@@ -25,7 +25,7 @@ export function NodeInstall({ pairingCode, gateway, compact = false }: { pairing
             <DesktopIcon size={18} className="text-accent-ink" /> Windows: tray app
           </p>
           <a href={`${RELEASES}/latest/download/${exe}`} className="btn-primary h-9" download>
-            Download {exe}
+            Download for Windows (v{APP_VERSION})
           </a>
           <p className="text-xs text-fg-muted">
             Open the installer, paste the pairing code, pick the folder to share. Runs in the tray, can start with Windows, updates itself, and installs Brave for browser control when needed. Unsigned for now, so SmartScreen may ask for “More info → Run anyway”.{" "}

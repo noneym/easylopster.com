@@ -206,7 +206,7 @@ export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: str
       )}
 
       <section className="card p-6 space-y-6" aria-live="polite">
-        <ol className="grid gap-4 sm:grid-cols-4">
+        <ol className="grid gap-4 grid-cols-2 min-[1700px]:grid-cols-4">
           {steps.map((s) => {
             const state = s.n < step ? "done" : s.n === step ? (status === "failed" && s.n === 4 ? "failed" : LIVE.has(status) ? "active" : "done") : "todo";
             return (

@@ -20,6 +20,7 @@ export function KeyForm() {
   // Models reported by the provider for the key being typed (auto-probe), by the Test button, or by Refresh.
   const [live, setLive] = useState<{ models: string[]; source: string } | null>(null);
   const [probing, setProbing] = useState(false);
+  const [probeError, setProbeError] = useState<string | null>(null);
   const probeSeq = useRef(0);
   const models = live?.models.length ? live.models : test?.models?.length ? test.models : info.models.map((m) => m.id);
 
@@ -28,6 +29,7 @@ export function KeyForm() {
   useEffect(() => {
     const key = apiKey.trim();
     setLive(null);
+    setProbeError(null);
     if (key.length < 16) return;
     const seq = ++probeSeq.current;
     const t = setTimeout(async () => {
@@ -35,6 +37,7 @@ export function KeyForm() {
       const r: { models?: string[]; contexts?: Record<string, number>; error?: string } = await probeModels(provider, key, baseUrl.trim() || undefined).catch(() => ({ error: "probe failed" }));
       if (seq !== probeSeq.current) return;
       setProbing(false);
+      if (r.error) setProbeError(r.error);
       if (r.models?.length) {
         setLive({ models: r.models, source: "typed key" });
         if (!r.models.includes(defaultModel)) setDefaultModel(PROVIDERS[provider].defaultModel && r.models.includes(PROVIDERS[provider].defaultModel) ? PROVIDERS[provider].defaultModel : r.models[0]!);
@@ -121,7 +124,7 @@ export function KeyForm() {
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <RefreshModelsButton load={() => probeModels(provider, apiKey.trim(), baseUrl.trim() || undefined)} onModels={(list) => setLive({ models: list, source: "refresh" })} />
           <span className="text-xs text-fg-muted">
-            {probing ? "Asking the provider for its models…" : live ? `${live.models.length} models loaded from the provider.` : test?.models?.length ? `${test.models.length} models loaded from the provider.` : "Paste the key and the list loads from the provider; until then this is the built-in list."} Bots can override this.
+            {probing ? "Asking the provider for its models…" : live ? `${live.models.length} models loaded from the provider.` : test?.models?.length ? `${test.models.length} models loaded from the provider.` : probeError ? `Could not load models: ${probeError} Showing the built-in list.` : "Paste the key and the list loads from the provider; until then this is the built-in list."} Bots can override this.
           </span>
         </div>
         {fe.defaultModel && <p className="error">{fe.defaultModel}</p>}
