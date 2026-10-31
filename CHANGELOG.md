@@ -6,6 +6,28 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-31
+
+### Added
+- Storage: connect your own S3-compatible bucket (Amazon S3, Cloudflare R2, MinIO, Backblaze B2 or
+  any S3 endpoint) on the new Storage page; the connection is tested for read and write and the
+  keys are stored encrypted. The page is a file browser over the bucket (folders, upload up to
+  200 MB per file through the server, download links, delete, new folder) with usage figures.
+- Agents get a shared drive: `storage_list`, `storage_read`, `storage_write`, `storage_delete`,
+  `storage_copy` (workspace ⇄ storage, binary files included) and `storage_link` (24-hour download
+  link) work on the owner's bucket and are shared by all of the owner's agents.
+- Backups: per agent, a schedule (daily at a time, weekly, or every N hours, in the owner's time
+  zone), retention (delete after N days, always keep the newest N), optional conversations and
+  inbox. Archives are zips with `workspace/`, `settings.json` (model, policies, automations,
+  allowlist, linked servers and nodes; never secret values) and `manifest.json`, written to
+  `backups/<agent>/` in the bucket. The Backups page lists them with download, restore (files, or
+  files + settings and automations) and delete, plus "Back up now". The gateway runs due backups
+  once a minute (`BACKUPS_ENABLED=0` turns the scheduler off).
+
+### Changed
+- "Bots" are now "Agents" across the dashboard (menu, pages, copy) and live under
+  `/dashboard/agents`; old `/dashboard/bots` links redirect. The database model keeps its name.
+
 ## [1.9.1] - 2026-10-31
 
 ### Added
@@ -349,7 +371,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/noneym/easylopster.com/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/noneym/easylopster.com/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/noneym/easylopster.com/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/noneym/easylopster.com/compare/v1.7.0...v1.8.0

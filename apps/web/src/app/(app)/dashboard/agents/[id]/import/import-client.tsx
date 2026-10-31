@@ -132,13 +132,13 @@ export function ImportClient({ botId, hasMemory }: { botId: string; hasMemory: b
           </p>
         )}
         <div className="flex flex-wrap gap-2 pt-2">
-          <Link href={`/dashboard/bots/${botId}/chat`} className="btn-primary">
+          <Link href={`/dashboard/agents/${botId}/chat`} className="btn-primary">
             Open web chat
           </Link>
-          <Link href={`/dashboard/bots/${botId}/files`} className="btn-secondary">
+          <Link href={`/dashboard/agents/${botId}/files`} className="btn-secondary">
             Browse workspace
           </Link>
-          <Link href={`/dashboard/bots/${botId}`} className="btn-ghost">
+          <Link href={`/dashboard/agents/${botId}`} className="btn-ghost">
             Bot settings
           </Link>
         </div>

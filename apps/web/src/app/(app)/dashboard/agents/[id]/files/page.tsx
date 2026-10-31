@@ -7,7 +7,7 @@ import { FileBrowser } from "./file-browser";
 
 export const metadata = { title: "Workspace" };
 
-export default async function BotFilesPage({ params, searchParams }: PageProps<"/dashboard/bots/[id]/files">) {
+export default async function BotFilesPage({ params, searchParams }: PageProps<"/dashboard/agents/[id]/files">) {
   const user = await requireUser();
   const { id } = await params;
   const sp = await searchParams;
@@ -23,7 +23,7 @@ export default async function BotFilesPage({ params, searchParams }: PageProps<"
           <h1 className="text-lg font-semibold tracking-tight">{bot.name} · workspace</h1>
           <p className="text-xs text-fg-muted">MEMORY.md and memory/ are the bot's own notes; skills/ holds reusable SKILL.md procedures. SOUL.md, USER.md and IDENTITY.md are the persona files the bot wrote during onboarding (also editable in settings).</p>
         </div>
-        <Link href={`/dashboard/bots/${bot.id}`} className="btn-ghost h-9">
+        <Link href={`/dashboard/agents/${bot.id}`} className="btn-ghost h-9">
           Settings
         </Link>
       </div>

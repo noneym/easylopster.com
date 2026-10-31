@@ -119,7 +119,7 @@ export default async function NodeDetailPage({ params }: PageProps<"/dashboard/n
           </div>
           <div className="card p-5">
             <p className="text-sm text-fg-muted">Used by</p>
-            {node.bots.length === 0 ? <p className="mt-1 text-sm">No bots yet. Enable it on a bot's page.</p> : <ul className="mt-1 text-sm space-y-1">{node.bots.map((b) => <li key={b.bot.id}>{b.bot.name}</li>)}</ul>}
+            {node.bots.length === 0 ? <p className="mt-1 text-sm">No agents yet. Enable it on an agent's page.</p> : <ul className="mt-1 text-sm space-y-1">{node.bots.map((b) => <li key={b.bot.id}>{b.bot.name}</li>)}</ul>}
           </div>
           <div className="card p-5 space-y-3">
             <p className="text-sm text-fg-muted">Danger</p>

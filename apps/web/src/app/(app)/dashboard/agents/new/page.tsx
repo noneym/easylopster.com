@@ -9,7 +9,7 @@ import { NewBotForm } from "./new-bot-form";
 import { RemoteImport } from "../[id]/import/remote-import";
 import { latestImportSession } from "../[id]/import/actions";
 
-export const metadata = { title: "New bot" };
+export const metadata = { title: "New agent" };
 
 export default async function NewBotPage() {
   const user = await requireUser();
@@ -23,10 +23,10 @@ export default async function NewBotPage() {
 
   return (
     <>
-      <PageHeader title="New bot" description="Create one from scratch, or move an existing OpenClaw bot here with one command on its machine." />
+      <PageHeader title="New agent" description="Create one from scratch, or move an existing OpenClaw agent here with one command on its machine." />
       {keys.length === 0 && !limitReached && (
         <div className="mb-6 rounded-md border border-line bg-bg-sunk px-4 py-3 text-sm text-fg-muted">
-          No API key on the account yet. You can still import from OpenClaw (its keys come along when ticked); a bot from scratch needs a key first.
+          No API key on the account yet. You can still import from OpenClaw (its keys come along when ticked); an agent from scratch needs a key first.
         </div>
       )}
       {limitReached ? (

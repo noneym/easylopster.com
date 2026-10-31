@@ -98,7 +98,7 @@ export async function setBotNodes(botId: string, formData: FormData) {
       if (formData.get(`node:${n.id}`) === "on") await tx.botNode.create({ data: { botId, nodeId: n.id } });
     }
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }
 
 /** Gateway's live view of connected nodes (ids). Empty on any error so the page still renders. */

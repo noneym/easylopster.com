@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 
 export const metadata = { title: "Conversation" };
 
-export default async function ConversationPage({ params }: PageProps<"/dashboard/bots/[id]/conversations/[conversationId]">) {
+export default async function ConversationPage({ params }: PageProps<"/dashboard/agents/[id]/conversations/[conversationId]">) {
   const user = await requireUser();
   const { id, conversationId } = await params;
   const conv = await db.conversation.findFirst({
@@ -22,7 +22,7 @@ export default async function ConversationPage({ params }: PageProps<"/dashboard
         title={conv.title ?? conv.sessionKey}
         description={`${conv.kind} · ${conv.sessionKey}${conv.compactedAt ? ` · compacted ${conv.compactedAt.toISOString().slice(0, 10)}` : ""} · ${conv.messages.length} messages`}
         action={
-          <Link href={`/dashboard/bots/${id}/conversations`} className="btn-ghost">
+          <Link href={`/dashboard/agents/${id}/conversations`} className="btn-ghost">
             All conversations
           </Link>
         }

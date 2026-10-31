@@ -86,7 +86,7 @@ export default async function McpDetailPage({ params, searchParams }: PageProps<
           <div className="card p-5">
             <p className="text-sm text-fg-muted">Used by</p>
             {s.bots.length === 0 ? (
-              <p className="mt-1 text-sm">No bots yet. Enable it on a bot's page.</p>
+              <p className="mt-1 text-sm">No agents yet. Enable it on an agent's page.</p>
             ) : (
               <ul className="mt-1 text-sm space-y-1">
                 {s.bots.map((b) => (

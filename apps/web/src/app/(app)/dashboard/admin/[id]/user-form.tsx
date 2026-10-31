@@ -17,7 +17,7 @@ export function AdminUserForm({
 }) {
   const [state, action, pending] = useActionState<AdminFormState, FormData>(updateUserAdmin, undefined);
   const fields: { name: keyof typeof user; label: string; value: number | null; def: number }[] = [
-    { name: "limitBots", label: "Bots", value: user.limitBots, def: defaults.bots },
+    { name: "limitBots", label: "Agents", value: user.limitBots, def: defaults.bots },
     { name: "limitNodes", label: "Nodes", value: user.limitNodes, def: defaults.nodes },
     { name: "limitMcp", label: "MCP servers", value: user.limitMcp, def: defaults.mcp },
     { name: "limitMessagesPerDay", label: "Messages per day", value: user.limitMessagesPerDay, def: defaults.messagesPerDay },

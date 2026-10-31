@@ -44,7 +44,7 @@ export default async function KeyDetailPage({ params }: PageProps<"/dashboard/ke
           <div className="card p-5">
             <p className="text-sm text-fg-muted">Used by</p>
             {key.bots.length === 0 ? (
-              <p className="mt-1 text-sm">No bots yet.</p>
+              <p className="mt-1 text-sm">No agents yet.</p>
             ) : (
               <ul className="mt-1 text-sm space-y-1">
                 {key.bots.map((b) => (

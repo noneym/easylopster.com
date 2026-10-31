@@ -56,7 +56,7 @@ export default async function AdminUserPage({ params }: PageProps<"/dashboard/ad
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {[
-          { label: "Bots", value: `${bots.length} / ${lim.bots}` },
+          { label: "Agents", value: `${bots.length} / ${lim.bots}` },
           { label: "Nodes", value: `${nodeCount} / ${lim.nodes}` },
           { label: "MCP servers", value: `${mcpCount} / ${lim.mcp}` },
           { label: "Messages today", value: `${today._sum.messages ?? 0} / ${lim.messagesPerDay}` },
@@ -95,7 +95,7 @@ export default async function AdminUserPage({ params }: PageProps<"/dashboard/ad
           <div className="card p-5 text-sm">
             <h2 className="font-semibold tracking-tight mb-3">Bots</h2>
             {bots.length === 0 ? (
-              <p className="text-fg-muted">No bots.</p>
+              <p className="text-fg-muted">No agents.</p>
             ) : (
               <ul className="space-y-1.5">
                 {bots.map((b) => (

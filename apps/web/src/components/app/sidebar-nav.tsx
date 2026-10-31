@@ -8,6 +8,7 @@ import {
   KeyIcon,
   LockKeyIcon,
   ChartBarIcon,
+  CloudIcon,
   PlugsConnectedIcon,
   RobotIcon,
   ShieldCheckIcon,
@@ -17,11 +18,12 @@ import {
 
 const ITEMS: { href: string; label: string; icon: Icon; exact?: boolean }[] = [
   { href: "/dashboard", label: "Overview", icon: SquaresFourIcon, exact: true },
-  { href: "/dashboard/bots", label: "Bots", icon: RobotIcon },
+  { href: "/dashboard/agents", label: "Agents", icon: RobotIcon },
   { href: "/dashboard/keys", label: "API keys", icon: KeyIcon },
   { href: "/dashboard/mcp", label: "MCP servers", icon: PlugsConnectedIcon },
   { href: "/dashboard/nodes", label: "Nodes", icon: DesktopIcon },
   { href: "/dashboard/secrets", label: "Secrets", icon: LockKeyIcon },
+  { href: "/dashboard/storage", label: "Storage", icon: CloudIcon },
   { href: "/dashboard/usage", label: "Usage", icon: ChartBarIcon },
   { href: "/dashboard/settings", label: "Settings", icon: GearSixIcon },
 ];

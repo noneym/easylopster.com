@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { CheckCircleIcon, WarningCircleIcon, LightningIcon } from "@phosphor-icons/react";
-import { testModel, type ModelTestResult } from "@/app/(app)/dashboard/bots/actions";
+import { testModel, type ModelTestResult } from "@/app/(app)/dashboard/agents/actions";
 
 /** "Does this key + model actually answer?" One tiny prompt through the gateway; shows latency or the provider's error. */
 export function ModelTestButton({ keyId, model, thinking = "off" }: { keyId: string; model: string; thinking?: string }) {

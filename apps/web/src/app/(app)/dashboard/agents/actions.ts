@@ -53,8 +53,8 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
     const bot = await db.bot.create({
       data: { userId: user.id, name, platform: "web", encToken: null, webhookSecret: randomToken(24), providerKeyId: key.id, model: parsed.data.model || key.defaultModel, agentName: name },
     });
-    revalidatePath("/dashboard/bots");
-    redirect(`/dashboard/bots/${bot.id}/chat?welcome=1`);
+    revalidatePath("/dashboard/agents");
+    redirect(`/dashboard/agents/${bot.id}/chat?welcome=1`);
   }
 
   const me = await tg.getMe(token);
@@ -87,9 +87,9 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
       : { lastError: `setWebhook failed: ${hook.description}`.slice(0, 1000), lastErrorAt: new Date(), status: "error" },
   });
 
-  revalidatePath("/dashboard/bots");
+  revalidatePath("/dashboard/agents");
   // First contact happens in the web chat: the workspace ships with BOOTSTRAP.md and the bot interviews the owner.
-  redirect(`/dashboard/bots/${bot.id}/chat?welcome=1`);
+  redirect(`/dashboard/agents/${bot.id}/chat?welcome=1`);
 }
 
 const settingsSchema = z.object({
@@ -153,8 +153,8 @@ export async function updateBot(_prev: BotFormState, formData: FormData): Promis
     await Promise.all([put("SOUL.md", d.systemPrompt ?? ""), put("USER.md", d.userProfile ?? "")]);
   }
   if (r.count === 0) return { error: "Bot not found" };
-  revalidatePath(`/dashboard/bots/${d.id}`);
-  revalidatePath("/dashboard/bots");
+  revalidatePath(`/dashboard/agents/${d.id}`);
+  revalidatePath("/dashboard/agents");
   return { ok: true, message: "Saved." };
 }
 
@@ -176,7 +176,7 @@ export async function decidePairing(id: string, decision: "approved" | "rejected
     // Mirrors OpenClaw's --notify text.
     await tg.sendMessage(decrypt(req.bot.encToken), req.tgChatId, "✅ Access approved. Send a message to start chatting.");
   }
-  revalidatePath(`/dashboard/bots/${req.botId}`);
+  revalidatePath(`/dashboard/agents/${req.botId}`);
   revalidatePath("/dashboard");
 }
 
@@ -199,7 +199,7 @@ export async function addAllowlistEntry(_prev: BotFormState, formData: FormData)
     create: { botId, kind, tgId, label: label || null },
     update: { label: label || null },
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
   return { ok: true };
 }
 
@@ -208,7 +208,7 @@ export async function removeAllowlistEntry(id: string) {
   const row = await db.botAllowlist.findFirst({ where: { id, bot: { userId: user.id } } });
   if (!row) return;
   await db.botAllowlist.delete({ where: { id } });
-  revalidatePath(`/dashboard/bots/${row.botId}`);
+  revalidatePath(`/dashboard/agents/${row.botId}`);
 }
 
 /** Connects a bot to Telegram (or switches it to another bot token): verify, dedupe, webhook, commands. */
@@ -241,8 +241,8 @@ export async function setTelegramToken(botId: string, token: string): Promise<{ 
       status: bot.status === "error" && hook.ok ? "active" : bot.status,
     },
   });
-  revalidatePath(`/dashboard/bots/${bot.id}`);
-  revalidatePath("/dashboard/bots");
+  revalidatePath(`/dashboard/agents/${bot.id}`);
+  revalidatePath("/dashboard/agents");
   return { username: me.result.username ?? null, webhookWarning: hook.ok ? undefined : `Webhook not set (${hook.description}); use "Re-register webhook" on the bot page.` };
 }
 
@@ -253,8 +253,8 @@ export async function removeTelegramToken(botId: string): Promise<{ ok?: boolean
   if (!bot) return { error: "Bot not found" };
   if (bot.encToken) await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
   await db.bot.update({ where: { id: bot.id }, data: { platform: "web", encToken: null, tgBotId: null, tgUsername: null, webhookSetAt: null, lastError: null, lastErrorAt: null, status: bot.status === "error" ? "active" : bot.status } });
-  revalidatePath(`/dashboard/bots/${bot.id}`);
-  revalidatePath("/dashboard/bots");
+  revalidatePath(`/dashboard/agents/${bot.id}`);
+  revalidatePath("/dashboard/agents");
   return { ok: true };
 }
 
@@ -267,15 +267,15 @@ export async function setBotModel(botId: string, providerKeyId: string, model: s
   if (!m) return { error: "Pick a model" };
   const r = await db.bot.updateMany({ where: { id: botId, userId: user.id }, data: { providerKeyId: key.id, model: m } });
   if (!r.count) return { error: "Bot not found" };
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
   return { ok: true };
 }
 
 export async function setBotStatus(id: string, status: "active" | "paused") {
   const user = await requireUser();
   await db.bot.updateMany({ where: { id, userId: user.id }, data: { status, lastError: status === "active" ? null : undefined } });
-  revalidatePath(`/dashboard/bots/${id}`);
-  revalidatePath("/dashboard/bots");
+  revalidatePath(`/dashboard/agents/${id}`);
+  revalidatePath("/dashboard/agents");
 }
 
 export async function resetWebhook(id: string) {
@@ -291,7 +291,7 @@ export async function resetWebhook(id: string) {
       ? { webhookSetAt: new Date(), lastError: null, lastErrorAt: null, status: bot.status === "error" ? "active" : bot.status }
       : { lastError: `setWebhook failed: ${hook.description}`.slice(0, 1000), lastErrorAt: new Date() },
   });
-  revalidatePath(`/dashboard/bots/${id}`);
+  revalidatePath(`/dashboard/agents/${id}`);
 }
 
 export async function deleteBot(id: string) {
@@ -300,8 +300,8 @@ export async function deleteBot(id: string) {
   if (!bot) return;
   if (bot.encToken) await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
   await db.bot.delete({ where: { id } });
-  revalidatePath("/dashboard/bots");
-  redirect("/dashboard/bots");
+  revalidatePath("/dashboard/agents");
+  redirect("/dashboard/agents");
 }
 
 export type ModelTestResult = { ok: boolean; ms: number; reply?: string; error?: string; model?: string };

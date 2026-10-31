@@ -376,12 +376,12 @@ export function RemoteImport({ botId, origin, hasMemory, initial, keys = [] }: {
             {session.result?.heartbeat === "exists" && <p className="text-sm text-fg-muted">The existing “Proactive check” automation now follows HEARTBEAT.md.</p>}
             <div className="flex flex-wrap gap-2 pt-1">
               {targetBot && (
-                <Link href={`/dashboard/bots/${targetBot}/chat`} className="btn-primary">
+                <Link href={`/dashboard/agents/${targetBot}/chat`} className="btn-primary">
                   Open web chat
                 </Link>
               )}
               {targetBot && (
-                <Link href={`/dashboard/bots/${targetBot}`} className="btn-secondary">
+                <Link href={`/dashboard/agents/${targetBot}`} className="btn-secondary">
                   Bot settings
                 </Link>
               )}
@@ -402,7 +402,7 @@ export function RemoteImport({ botId, origin, hasMemory, initial, keys = [] }: {
                 <ArrowsClockwiseIcon size={16} /> New command
               </button>
               {targetBot && created && (
-                <Link href={`/dashboard/bots/${targetBot}`} className="btn-ghost">
+                <Link href={`/dashboard/agents/${targetBot}`} className="btn-ghost">
                   Open the created bot
                 </Link>
               )}

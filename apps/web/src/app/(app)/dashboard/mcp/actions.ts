@@ -236,5 +236,5 @@ export async function setBotMcps(botId: string, formData: FormData) {
       await tx.botMcp.create({ data: { botId, mcpServerId: s.id, allowedTools: allowedTools as never } });
     }
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }

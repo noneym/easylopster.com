@@ -70,8 +70,8 @@ export async function createSkill(_prev: SkillFormState, formData: FormData): Pr
   const rel = `skills/${parsed.data.slug}/SKILL.md`;
   const r = await gatewayFetch(`/internal/ws/${bot.userId}/${bot.id}/file${q(rel)}`, { method: "PUT", body: SKILL_TEMPLATE(parsed.data.name), headers: { "content-type": "text/plain; charset=utf-8" } }).catch(() => null);
   if (!r || !r.ok) return { error: "Could not write the skill file (gateway unreachable?)" };
-  revalidatePath(`/dashboard/bots/${botId}/skills`);
-  redirect(`/dashboard/bots/${botId}/files?path=${encodeURIComponent(rel)}`);
+  revalidatePath(`/dashboard/agents/${botId}/skills`);
+  redirect(`/dashboard/agents/${botId}/files?path=${encodeURIComponent(rel)}`);
 }
 
 export async function importSkill(_prev: SkillFormState, formData: FormData): Promise<SkillFormState> {
@@ -98,7 +98,7 @@ export async function importSkill(_prev: SkillFormState, formData: FormData): Pr
   const rel = `skills/${slug}/SKILL.md`;
   const r = await gatewayFetch(`/internal/ws/${bot.userId}/${bot.id}/file${q(rel)}`, { method: "PUT", body: body.trim() + "\n", headers: { "content-type": "text/plain; charset=utf-8" } }).catch(() => null);
   if (!r || !r.ok) return { error: "Could not write the skill file (gateway unreachable?)" };
-  revalidatePath(`/dashboard/bots/${botId}/skills`);
+  revalidatePath(`/dashboard/agents/${botId}/skills`);
   return { ok: true };
 }
 
@@ -106,5 +106,5 @@ export async function deleteSkill(botId: string, slug: string) {
   const bot = await ownBot(botId);
   if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return;
   await gatewayFetch(`/internal/ws/${bot.userId}/${bot.id}/file${q(`skills/${slug}`)}`, { method: "DELETE" }).catch(() => null);
-  revalidatePath(`/dashboard/bots/${botId}/skills`);
+  revalidatePath(`/dashboard/agents/${botId}/skills`);
 }

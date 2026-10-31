@@ -22,6 +22,7 @@ import { loadBotSecrets, secretsTools } from "./secrets.ts";
 import { secretsSetupTools, setupTools } from "./setup-tools.ts";
 import { namesiloTools } from "./namesilo.ts";
 import { automationsTools } from "./automations.ts";
+import { storageFor, storageTools } from "./storage.ts";
 import { firedIntents, intentTools } from "./intents.ts";
 import { subagentTools, SUBAGENT_TASK_LABEL } from "./subagent.ts";
 import { webSearchTools } from "./web-search.ts";
@@ -174,6 +175,7 @@ export async function runAgent(input: RunInput): Promise<RunOutput> {
     ...(depth === 0 ? secretsSetupTools({ botId: bot.id, userId: bot.userId, conversationId: conversation.id }, secrets.meta) : secrets.meta.length ? secretsTools(secrets) : {}),
     ...(depth === 0 ? setupTools({ botId: bot.id, userId: bot.userId, conversationId: conversation.id }) : {}),
     ...automationsTools(bot.id, timezone),
+    ...storageTools(await storageFor(bot.userId), ws),
     ...intentTools(bot.id, conversation.id),
     ...webSearchTools(),
     ...(secrets.env.NAMESILO_API_KEY ? namesiloTools(secrets.env.NAMESILO_API_KEY) : {}),

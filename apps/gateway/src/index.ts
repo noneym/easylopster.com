@@ -15,6 +15,7 @@ import { startTelegramPolling } from "./telegram/polling.ts";
 import { sandboxAvailable, sandboxExec, startSandboxReaper } from "./sandbox/docker.ts";
 import { handleWorkspaceHttp } from "./workspace/http.ts";
 import { startAutomationScheduler } from "./agent/automations.ts";
+import { restoreBackup, runBackup, startBackupScheduler } from "./agent/backup.ts";
 import { startDreaming } from "./agent/dreaming.ts";
 
 const log = (msg: string, extra?: unknown) =>
@@ -68,6 +69,21 @@ async function main() {
         }
         return;
       }
+      // Backups: run one now / restore one (the dashboard calls these; storage is the owner's bucket).
+      if ((url.pathname === "/internal/backup/run" || url.pathname === "/internal/backup/restore") && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        try {
+          const j = JSON.parse(body || "{}") as { botId?: string; backupId?: string; settings?: boolean };
+          const r = url.pathname === "/internal/backup/run" ? await runBackup(String(j.botId ?? ""), "manual") : await restoreBackup(String(j.backupId ?? ""), { settings: !!j.settings });
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify(r));
+        } catch (err) {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: (err as Error).message }));
+        }
+        return;
+      }
       // Operator smoke test for the cloud sandbox: POST {userId, botId, command}
       if (url.pathname === "/internal/sandbox/exec" && req.method === "POST") {
         let body = "";
@@ -116,6 +132,8 @@ async function main() {
   const stopSandbox = sandboxAvailable() ? startSandboxReaper() : () => {};
   const stopAutomations = process.env.AUTOMATIONS_ENABLED === "0" ? () => {} : startAutomationScheduler();
   const stopDreaming = process.env.DREAMING_ENABLED === "0" ? () => {} : startDreaming();
+  const stopBackups = process.env.BACKUPS_ENABLED === "0" ? () => {} : startBackupScheduler();
+  void stopBackups;
 
   const shutdown = async (sig: string) => {
     log(`${sig} received, shutting down`);

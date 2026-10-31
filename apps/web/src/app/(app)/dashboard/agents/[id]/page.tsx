@@ -15,9 +15,9 @@ import { BotSecretsForm } from "./bot-secrets-form";
 import { AutomationsSection } from "./automations/automations-section";
 import { onlineNodeIds } from "../../nodes/actions";
 
-export const metadata = { title: "Bot" };
+export const metadata = { title: "Agent" };
 
-export default async function BotDetailPage({ params }: PageProps<"/dashboard/bots/[id]">) {
+export default async function BotDetailPage({ params }: PageProps<"/dashboard/agents/[id]">) {
   const user = await requireUser();
   const { id } = await params;
   const [bot, keys, mcpServers, nodes, online, secrets] = await Promise.all([
@@ -52,19 +52,22 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
         description={bot.platform === "web" ? `web chat only · ${bot.status}` : `${bot.tgUsername ? `@${bot.tgUsername}` : "unverified"} · ${bot.status}${bot.webhookSetAt ? " · webhook set" : " · webhook missing"}`}
         action={
           <div className="flex gap-2">
-            <Link href={`/dashboard/bots/${bot.id}/conversations`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/conversations`} className="btn-secondary">
               Conversations
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}/files`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/files`} className="btn-secondary">
               Workspace
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}/skills`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/skills`} className="btn-secondary">
               Skills
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}/import`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/import`} className="btn-secondary">
               Import
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}/chat`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/backups`} className="btn-secondary">
+              Backups
+            </Link>
+            <Link href={`/dashboard/agents/${bot.id}/chat`} className="btn-secondary">
               Web chat
             </Link>
             {bot.tgUsername && (

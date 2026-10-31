@@ -34,6 +34,7 @@ model User {
   usage        UsageDaily[]
   emailTokens  EmailToken[]
   secrets      Secret[]
+  storage         StorageConfig?
 }
 
 model Session {
@@ -164,6 +165,8 @@ model Bot {
   secrets       BotSecret[]
   automations   Automation[]
   imports       ImportSession[]
+  backupPolicy  BackupPolicy?
+  backups       Backup[]
   intents       Intent[]
 
   @@unique([platform, tgBotId])
@@ -408,6 +411,74 @@ model BotSecret {
   createdAt DateTime @default(now())
 
   @@id([botId, secretId])
+}
+
+// ───────────────────────────── Storage (bring your own S3) and backups ─────────────────────────────
+
+/// The account's own S3-compatible bucket (AWS S3, Cloudflare R2, MinIO, Backblaze B2, …). One per
+/// account; agents read and write it with the storage_* tools, backups land under <prefix>backups/.
+model StorageConfig {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// s3 | r2 | minio | b2 | other (presentation only; everything speaks the S3 API)
+  provider      String   @default("s3")
+  endpoint      String?  @db.VarChar(512)
+  region        String   @default("auto")
+  bucket        String
+  /// Key prefix inside the bucket, "" or "folder/"
+  prefix        String   @default("")
+  forcePathStyle Boolean @default(false)
+  encAccessKey  String   @db.Text
+  encSecretKey  String   @db.Text
+  accessKeyLast4 String
+  lastTestedAt  DateTime?
+  lastTestOk    Boolean?
+  lastTestMsg   String?  @db.VarChar(512)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Scheduled backups of one agent into the account's storage.
+model BackupPolicy {
+  id            String    @id @default(cuid())
+  botId         String    @unique
+  bot           Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  enabled       Boolean   @default(true)
+  /// { kind: "every", everyMs } | { kind: "cron", expr, tz? } (same shape as Automation.schedule)
+  schedule      Json
+  /// Delete backups older than this many days (null = keep by count only)
+  retentionDays Int?      @default(7)
+  /// Always keep at least the newest N backups
+  keepLast      Int       @default(3)
+  includeConversations Boolean @default(false)
+  includeInbox  Boolean   @default(false)
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  /// ok | error | running
+  lastStatus    String?
+  lastError     String?   @db.VarChar(1024)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/// One backup archive in the account's storage.
+model Backup {
+  id         String   @id @default(cuid())
+  botId      String
+  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  userId     String
+  /// Object key inside the bucket (prefix included)
+  key        String   @db.VarChar(1024)
+  bytes      Int
+  /// { files, conversations, settings: true, version }
+  manifest   Json?
+  /// scheduled | manual
+  trigger    String   @default("scheduled")
+  createdAt  DateTime @default(now())
+
+  @@index([botId, createdAt])
+  @@index([userId])
 }
 
 // ───────────────────────────── OpenClaw import sessions ─────────────────────────────

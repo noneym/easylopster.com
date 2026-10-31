@@ -12,7 +12,7 @@ import { latestImportSession } from "./actions";
 
 export const metadata = { title: "Import from OpenClaw" };
 
-export default async function BotImportPage({ params }: PageProps<"/dashboard/bots/[id]/import">) {
+export default async function BotImportPage({ params }: PageProps<"/dashboard/agents/[id]/import">) {
   const user = await requireUser();
   const { id } = await params;
   const bot = await db.bot.findFirst({ where: { id, userId: user.id }, select: { id: true, name: true } });
@@ -24,9 +24,9 @@ export default async function BotImportPage({ params }: PageProps<"/dashboard/bo
     <>
       <PageHeader
         title={`${bot.name} · import from OpenClaw`}
-        description="Move an OpenClaw bot's personality, memory, heartbeat checklist, skills and scripts into this bot. Stop the OpenClaw instance first if it uses the same Telegram token."
+        description="Move an OpenClaw agent's personality, memory, heartbeat checklist, skills and scripts into this bot. Stop the OpenClaw instance first if it uses the same Telegram token."
         action={
-          <Link href={`/dashboard/bots/${bot.id}`} className="btn-ghost">
+          <Link href={`/dashboard/agents/${bot.id}`} className="btn-ghost">
             Bot settings
           </Link>
         }

@@ -8,7 +8,7 @@ import { ImportSkillForm, NewSkillForm } from "./skill-forms";
 
 export const metadata = { title: "Skills" };
 
-export default async function BotSkillsPage({ params }: PageProps<"/dashboard/bots/[id]/skills">) {
+export default async function BotSkillsPage({ params }: PageProps<"/dashboard/agents/[id]/skills">) {
   const user = await requireUser();
   const { id } = await params;
   const bot = await db.bot.findFirst({ where: { id, userId: user.id }, select: { id: true, name: true } });
@@ -22,13 +22,13 @@ export default async function BotSkillsPage({ params }: PageProps<"/dashboard/bo
         description="Reusable procedures the bot reads when a task matches (skills/<name>/SKILL.md in its workspace). The bot writes its own with skill_save; you can add, import or edit them here, or just ask the bot."
         action={
           <div className="flex gap-2">
-            <Link href={`/dashboard/bots/${bot.id}/files`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/files`} className="btn-secondary">
               Workspace
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}/chat`} className="btn-secondary">
+            <Link href={`/dashboard/agents/${bot.id}/chat`} className="btn-secondary">
               Web chat
             </Link>
-            <Link href={`/dashboard/bots/${bot.id}`} className="btn-ghost">
+            <Link href={`/dashboard/agents/${bot.id}`} className="btn-ghost">
               Settings
             </Link>
           </div>
@@ -56,7 +56,7 @@ export default async function BotSkillsPage({ params }: PageProps<"/dashboard/bo
                       {s.location} · {s.size.toLocaleString()} bytes
                     </p>
                   </div>
-                  <Link href={`/dashboard/bots/${bot.id}/files?path=${encodeURIComponent(s.location)}`} className="btn-secondary h-8 text-sm">
+                  <Link href={`/dashboard/agents/${bot.id}/files?path=${encodeURIComponent(s.location)}`} className="btn-secondary h-8 text-sm">
                     Edit
                   </Link>
                   <form action={deleteSkill.bind(null, bot.id, s.slug)}>

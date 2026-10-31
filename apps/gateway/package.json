@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/gateway",
-  "version": "1.9.1",
+  "version": "1.10.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,11 +14,15 @@
     "@ai-sdk/google": "^4.0.104",
     "@ai-sdk/openai": "^4.0.101",
     "@ai-sdk/openai-compatible": "^3.0.77",
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@easylopster/db": "workspace:*",
     "@easylopster/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@openrouter/ai-sdk-provider": "^3.1.0",
+    "adm-zip": "^0.6.1",
     "ai": "^7.0.152",
+    "archiver": "^8.0.0",
     "bullmq": "^6.4.1",
     "cron-parser": "^5.10.2",
     "dockerode": "^5.0.1",
@@ -28,6 +32,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.6.0",
+    "@types/archiver": "^8.0.0",
     "@types/dockerode": "^4.0.2",
     "@types/node": "^22.19.0",
     "@types/ws": "^8.18.1",

@@ -7,7 +7,7 @@ import { ChatClient } from "./chat-client";
 
 export const metadata = { title: "Web chat" };
 
-export default async function BotChatPage({ params, searchParams }: PageProps<"/dashboard/bots/[id]/chat">) {
+export default async function BotChatPage({ params, searchParams }: PageProps<"/dashboard/agents/[id]/chat">) {
   const user = await requireUser();
   const { id } = await params;
   const sp = await searchParams;
@@ -38,7 +38,7 @@ export default async function BotChatPage({ params, searchParams }: PageProps<"/
           <h1 className="text-lg font-semibold tracking-tight">{bot.agentName || bot.name}</h1>
           <p className="text-xs text-fg-muted font-mono">{bot.model ?? "no model"} · web session</p>
         </div>
-        <Link href={`/dashboard/bots/${bot.id}`} className="btn-ghost h-9">
+        <Link href={`/dashboard/agents/${bot.id}`} className="btn-ghost h-9">
           Settings
         </Link>
       </div>
@@ -57,7 +57,7 @@ export default async function BotChatPage({ params, searchParams }: PageProps<"/
                       <span className="block text-xs text-fg-muted font-normal">{s._count.messages} messages</span>
                     </span>
                   ) : (
-                    <Link href={`/dashboard/bots/${bot.id}/conversations/${s.id}`} className="block rounded-md px-2.5 py-1.5 text-fg-muted hover:bg-bg-sunk hover:text-fg">
+                    <Link href={`/dashboard/agents/${bot.id}/conversations/${s.id}`} className="block rounded-md px-2.5 py-1.5 text-fg-muted hover:bg-bg-sunk hover:text-fg">
                       <span className="block truncate">{label}</span>
                       <span className="block text-xs text-fg-faint">
                         {sessionDate(s.startedAt)} · {s._count.messages} msgs

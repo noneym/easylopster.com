@@ -18,8 +18,8 @@ export default async function OverviewPage() {
 
   const steps = [
     { done: keys > 0, label: "Add an API key", href: "/dashboard/keys", hint: "Anthropic, OpenAI, Gemini, OpenRouter or a custom endpoint." },
-    { done: bots > 0, label: "Connect a Telegram bot", href: "/dashboard/bots", hint: "Paste the token from BotFather." },
-    { done: pending === 0 && bots > 0, label: "Approve your first pairing", href: "/dashboard/bots", hint: "Message the bot, then approve the code here." },
+    { done: bots > 0, label: "Create an agent", href: "/dashboard/agents/new", hint: "From scratch (web chat, optionally Telegram) or imported from OpenClaw." },
+    { done: pending === 0 && bots > 0, label: "Approve your first pairing", href: "/dashboard/agents", hint: "Message the bot, then approve the code here." },
   ];
   const firstName = user.name?.split(" ")[0] ?? "there";
 
@@ -55,7 +55,7 @@ export default async function OverviewPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Bots", value: bots, limit: limits.bots, href: "/dashboard/bots" },
+          { label: "Agents", value: bots, limit: limits.bots, href: "/dashboard/agents" },
           { label: "API keys", value: keys, href: "/dashboard/keys" },
           { label: "MCP servers", value: mcps, limit: limits.mcp, href: "/dashboard/mcp" },
           { label: "Nodes", value: nodes, limit: limits.nodes, href: "/dashboard/nodes" },
@@ -73,7 +73,7 @@ export default async function OverviewPage() {
       {pending > 0 && (
         <p className="mt-6 text-sm text-fg-muted">
           {pending} pairing {pending === 1 ? "request is" : "requests are"} waiting.{" "}
-          <Link href="/dashboard/bots" className="text-fg underline underline-offset-4">
+          <Link href="/dashboard/agents" className="text-fg underline underline-offset-4">
             Review
           </Link>
         </p>

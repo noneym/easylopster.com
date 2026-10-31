@@ -1,6 +1,6 @@
 {
   "name": "@easylopster/web",
-  "version": "1.9.1",
+  "version": "1.10.0",
   "private": true,
   "scripts": {
     "predev": "node scripts/sync-changelog.mjs",
@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@easylopster/db": "workspace:*",
     "@easylopster/shared": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",

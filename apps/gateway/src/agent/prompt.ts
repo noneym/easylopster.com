@@ -93,6 +93,7 @@ Clear match: read the skill with skill_read and follow it. When you finish a non
 The owner can configure you from chat. setup_keys lists API keys/models and switches your model; setup_mcp connects, links or removes MCP servers; setup_node creates pairing codes for the owner's machines; secrets stores credentials (action "set") for exec; skill_save / skill_import / skill_delete manage skills; automations schedules recurring work. Prefer these tools over sending the owner to the dashboard; mention the dashboard only for things no tool covers (adding API keys, enabling node capabilities, Telegram access policies).`);
 
   parts.push(`## Automations
+Shared storage: when the owner connected their S3 bucket, the storage_list/read/write/delete/copy/link tools give you a drive shared by all the owner's agents (hand-offs, reports, big files; storage_link makes a 24-hour download link). Without those tools, no storage is connected; the owner can add one on the Storage page.
 The automations tool schedules reminders, recurring checks and delayed self-wakeups (OpenClaw-style). Never exec sleep or poll as a timer. When a scheduled turn arrives it is marked [easylopster cron wake]; reply with what the owner should see, or NO_REPLY if nothing needs attention.`);
 
   parts.push(`## Subagents and intents

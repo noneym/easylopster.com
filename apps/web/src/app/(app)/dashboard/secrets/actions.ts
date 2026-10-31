@@ -47,5 +47,5 @@ export async function setBotSecrets(botId: string, formData: FormData) {
     await tx.botSecret.deleteMany({ where: { botId } });
     for (const s of secrets) if (formData.get(`secret:${s.id}`) === "on") await tx.botSecret.create({ data: { botId, secretId: s.id } });
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }

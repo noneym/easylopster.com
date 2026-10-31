@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { limitsFor } from "@/lib/limits";
 
-export const metadata = { title: "Bots" };
+export const metadata = { title: "Agents" };
 
 export default async function BotsPage() {
   const user = await requireUser();
@@ -15,22 +15,22 @@ export default async function BotsPage() {
   return (
     <>
       <PageHeader
-        title="Bots"
-        description={`Each bot is a Telegram bot with its own model, prompt and access list. ${bots.length} of ${limitsFor(user).bots} used.`}
+        title="Agents"
+        description={`Each agent has its own model, persona, memory, tools and access list, and answers in the web chat and, when connected, on Telegram. ${bots.length} of ${limitsFor(user).bots} used.`}
         action={
-          <Link href="/dashboard/bots/new" className="btn-primary" aria-disabled={bots.length >= limitsFor(user).bots}>
-            New bot
+          <Link href="/dashboard/agents/new" className="btn-primary" aria-disabled={bots.length >= limitsFor(user).bots}>
+            New agent
           </Link>
         }
       />
       {bots.length === 0 ? (
         <EmptyState
           icon={<RobotIcon size={24} />}
-          title="No bots yet"
-          body="Create a bot with @BotFather in Telegram, copy its token and paste it here. We verify it and set the webhook for you."
+          title="No agents yet"
+          body="Create one from scratch (a Telegram token is optional) or move an existing OpenClaw agent here with one command."
           action={
-            <Link href="/dashboard/bots/new" className="btn-primary">
-              Connect a Telegram bot
+            <Link href="/dashboard/agents/new" className="btn-primary">
+              Create an agent
             </Link>
           }
         />
@@ -43,10 +43,10 @@ export default async function BotsPage() {
                 <p className="text-sm text-fg-muted truncate">{b.tgUsername ? `@${b.tgUsername}` : b.platform === "web" ? "web chat only" : "not verified"} · {b.model ?? "no model"}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Link href={`/dashboard/bots/${b.id}/chat`} className="btn-primary h-9">
+                <Link href={`/dashboard/agents/${b.id}/chat`} className="btn-primary h-9">
                   Web chat
                 </Link>
-                <Link href={`/dashboard/bots/${b.id}`} className="btn-secondary h-9">
+                <Link href={`/dashboard/agents/${b.id}`} className="btn-secondary h-9">
                   Manage
                 </Link>
               </div>

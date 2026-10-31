@@ -43,7 +43,7 @@ export async function createAutomation(_prev: AutomationFormState, formData: For
   await db.automation.create({
     data: { botId, name: d.name, schedule, prompt: d.prompt, sessionTarget: d.sessionTarget, idleOnly: d.idleOnly === "on", createdBy: "owner", nextRunAt: null },
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
   return { ok: true };
 }
 
@@ -54,23 +54,23 @@ export async function addHeartbeat(botId: string) {
   await db.automation.create({
     data: { botId, name: "Proactive check", schedule: { kind: "every", everyMs: 30 * 60_000 }, prompt: HEARTBEAT_PROMPT, sessionTarget: "main", idleOnly: true, createdBy: "owner" },
   });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }
 
 export async function toggleAutomation(botId: string, id: string, enabled: boolean) {
   await ownBot(botId);
   await db.automation.updateMany({ where: { id, botId }, data: { enabled, nextRunAt: enabled ? null : undefined, failures: 0 } });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }
 
 export async function runAutomationNow(botId: string, id: string) {
   await ownBot(botId);
   await db.automation.updateMany({ where: { id, botId }, data: { nextRunAt: new Date(), enabled: true } });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }
 
 export async function deleteAutomation(botId: string, id: string) {
   await ownBot(botId);
   await db.automation.deleteMany({ where: { id, botId } });
-  revalidatePath(`/dashboard/bots/${botId}`);
+  revalidatePath(`/dashboard/agents/${botId}`);
 }
