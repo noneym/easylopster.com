@@ -80,3 +80,27 @@ jobs:
             packages/node-desktop/release/*.exe
             packages/node-desktop/release/*.blockmap
             packages/node-desktop/release/latest.yml
+
+  desktop-mac:
+    runs-on: macos-latest
+    env:
+      # No Apple Developer ID yet: ad-hoc signature (identity "-" in package.json), no keychain lookup, no notarization.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @easylopster/node-desktop dist:mac
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: easylopster ${{ github.ref_name }}
+          files: |
+            packages/node-desktop/release/*.dmg
+            packages/node-desktop/release/*-mac-*.zip
+            packages/node-desktop/release/*.dmg.blockmap
+            packages/node-desktop/release/*-mac-*.zip.blockmap
+            packages/node-desktop/release/latest-mac.yml

@@ -6,6 +6,28 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-31
+
+### Added
+- easylopster Node for macOS: the same tray app as on Windows, as a menu-bar app (no Dock icon) for
+  Apple Silicon and Intel Macs (`.dmg` and `.zip` on the release). Pairing, shared folder, shell
+  commands (bash), notifications, clipboard, background jobs and full Brave control work as on
+  Windows. Brave is found in /Applications or ~/Applications and, when missing, installed with
+  Homebrew or from Brave's DMG (arm64 or Intel) into /Applications (~/Applications without admin
+  rights). "Open at login" uses a macOS login item; the menu-bar icon is a template image that
+  follows light and dark mode.
+- The app is ad-hoc signed, not signed with an Apple Developer ID, so macOS cannot install updates
+  by itself: the Mac app checks for new versions, notifies, and "Download" opens the release page.
+  Windows keeps installing updates automatically.
+- Nodes pages: macOS downloads (Apple Silicon / Intel) next to the Windows installer, with how to
+  open an unsigned app (Privacy & Security → Open Anyway, or
+  `xattr -dr com.apple.quarantine "/Applications/easylopster Node.app"`). The node page shows the
+  same install card with the pairing code filled in.
+- Release workflow builds the macOS app on macos-latest and attaches the DMGs, zips and latest-mac.yml.
+
+### Fixed
+- The install card's default gateway address (gw.easylopster.com).
+
 ## [1.10.0] - 2026-10-31
 
 ### Added
@@ -371,7 +393,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/noneym/easylopster.com/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/noneym/easylopster.com/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/noneym/easylopster.com/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/noneym/easylopster.com/compare/v1.8.0...v1.9.0

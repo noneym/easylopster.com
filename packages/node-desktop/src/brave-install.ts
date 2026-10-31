@@ -1,24 +1,28 @@
 /**
- * Installs Brave on this PC when browser control is wanted but brave.exe is missing.
- * First choice is winget (present on current Windows 10/11); fallback is Brave's standalone
- * installer downloaded from laptop-updates.brave.com and run silently. One install at a time;
- * callers get a status object so the agent can be told "installing, try again in a minute".
+ * Installs Brave on this computer when browser control is wanted but Brave is missing.
+ *  - Windows: winget (present on current Windows 10/11), else Brave's standalone installer run silently.
+ *  - macOS: Homebrew (`brew install --cask brave-browser`) when present, else Brave's DMG
+ *    (arm64 or Intel) mounted with hdiutil and copied to /Applications (or ~/Applications when
+ *    /Applications is not writable for this user).
+ * One install at a time; callers get a status object so the agent can be told "installing, try again in a minute".
  */
 import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { createWriteStream, existsSync } from "node:fs";
+import { access, mkdir, rm } from "node:fs/promises";
+import { constants as FS } from "node:fs";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
 import { findBrave } from "./browser";
 
-const STANDALONE_URL = "https://laptop-updates.brave.com/latest/winx64";
+const WIN_INSTALLER_URL = "https://laptop-updates.brave.com/latest/winx64";
+const MAC_DMG_URL = process.arch === "arm64" ? "https://laptop-updates.brave.com/latest/osxarm64" : "https://laptop-updates.brave.com/latest/osx";
 
 export interface InstallState {
   running: boolean;
   startedAt?: number;
   finishedAt?: number;
-  method?: "winget" | "installer";
+  method?: "winget" | "installer" | "homebrew" | "dmg";
   error?: string;
   installedPath?: string;
 }
@@ -52,7 +56,7 @@ function run(cmd: string, args: string[], log: (l: string) => void, timeoutMs: n
     });
     child.on("exit", (code) => {
       clearTimeout(timer);
-      log(`brave-install: ${cmd} exited ${code}`);
+      log(`brave-install: ${path.basename(cmd)} ${args[0] ?? ""} exited ${code}`);
       resolve({ code, out });
     });
   });
@@ -80,7 +84,7 @@ function download(url: string, dest: string, log: (l: string) => void, redirects
             const pct = Math.floor((got / total) * 100);
             if (pct >= lastPct + 25) {
               lastPct = pct;
-              log(`brave-install: downloading installer ${pct}%`);
+              log(`brave-install: downloading ${pct}%`);
             }
           }
         });
@@ -93,6 +97,89 @@ function download(url: string, dest: string, log: (l: string) => void, redirects
   });
 }
 
+async function waitForBrave(ms: number): Promise<string | undefined> {
+  const deadline = Date.now() + ms;
+  let found = findBrave();
+  while (!found && Date.now() < deadline) {
+    await new Promise((res) => setTimeout(res, 2000));
+    found = findBrave();
+  }
+  return found;
+}
+
+async function installWindows(log: (l: string) => void): Promise<string> {
+  const probe = await run("winget", ["--version"], log, 20_000);
+  if (probe.code === 0) {
+    state.method = "winget";
+    log("brave-install: installing Brave with winget");
+    const r = await run("winget", ["install", "--id", "Brave.Brave", "-e", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], log, 10 * 60_000);
+    const found = findBrave();
+    if (found) return found;
+    log(`brave-install: winget did not produce brave.exe (exit ${r.code}); trying the standalone installer`);
+  } else log("brave-install: winget not available; using the standalone installer");
+  state.method = "installer";
+  const dir = path.join(os.tmpdir(), "easylopster-brave-install");
+  await mkdir(dir, { recursive: true });
+  const exe = path.join(dir, "BraveBrowserSetup.exe");
+  await download(WIN_INSTALLER_URL, exe, log);
+  log("brave-install: running the Brave installer silently");
+  const r = await run(exe, ["/silent", "/install"], log, 10 * 60_000);
+  // The installer may hand off to a child process; give it a moment to finish.
+  const found = await waitForBrave(90_000);
+  await rm(dir, { recursive: true, force: true }).catch(() => {});
+  if (!found) throw new Error(`Brave installer finished (exit ${r.code}) but brave.exe was not found; install Brave manually from brave.com`);
+  return found;
+}
+
+function brewPath(): string | undefined {
+  return ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].find((p) => existsSync(p));
+}
+
+async function installMac(log: (l: string) => void): Promise<string> {
+  const brew = brewPath();
+  if (brew) {
+    state.method = "homebrew";
+    log("brave-install: installing Brave with Homebrew (brew install --cask brave-browser)");
+    const r = await run(brew, ["install", "--cask", "brave-browser"], log, 15 * 60_000);
+    const found = findBrave();
+    if (found) return found;
+    log(`brave-install: Homebrew did not produce Brave (exit ${r.code}); downloading the DMG instead`);
+  } else log("brave-install: Homebrew not found; downloading Brave's DMG");
+
+  state.method = "dmg";
+  const dir = path.join(os.tmpdir(), "easylopster-brave-install");
+  const mount = path.join(dir, "mnt");
+  await mkdir(mount, { recursive: true });
+  const dmg = path.join(dir, "Brave-Browser.dmg");
+  try {
+    await download(MAC_DMG_URL, dmg, log);
+    log("brave-install: mounting the DMG");
+    const att = await run("/usr/bin/hdiutil", ["attach", dmg, "-nobrowse", "-noautoopen", "-quiet", "-mountpoint", mount], log, 5 * 60_000);
+    if (att.code !== 0) throw new Error(`hdiutil attach failed: ${att.out.trim().slice(-300)}`);
+    const src = path.join(mount, "Brave Browser.app");
+    if (!existsSync(src)) throw new Error("the DMG does not contain Brave Browser.app");
+    // /Applications is writable for admin users; others get ~/Applications (Brave runs from either).
+    let target = "/Applications";
+    try {
+      await access(target, FS.W_OK);
+    } catch {
+      target = path.join(os.homedir(), "Applications");
+      await mkdir(target, { recursive: true });
+    }
+    log(`brave-install: copying Brave Browser.app to ${target}`);
+    const cp = await run("/usr/bin/ditto", [src, path.join(target, "Brave Browser.app")], log, 10 * 60_000);
+    if (cp.code !== 0) throw new Error(`copy failed: ${cp.out.trim().slice(-300)}`);
+    // Downloaded by us, not the browser: no quarantine prompt for a file the user did not open, but clear it anyway.
+    await run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", path.join(target, "Brave Browser.app")], log, 60_000);
+  } finally {
+    await run("/usr/bin/hdiutil", ["detach", mount, "-quiet", "-force"], () => {}, 60_000).catch(() => {});
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+  const found = await waitForBrave(10_000);
+  if (!found) throw new Error("Brave was copied but could not be found; install Brave manually from brave.com");
+  return found;
+}
+
 /** Starts (or joins) an installation; resolves when it ends. Call `braveInstallState()` for progress meanwhile. */
 export function installBrave(log: (l: string) => void): Promise<InstallState> {
   if (current) return current;
@@ -103,40 +190,10 @@ export function installBrave(log: (l: string) => void): Promise<InstallState> {
     state.error = undefined;
     state.installedPath = undefined;
     try {
-      if (process.platform !== "win32") throw new Error("automatic Brave install is only implemented on Windows");
-      // 1) winget
-      const probe = await run("winget", ["--version"], log, 20_000);
-      if (probe.code === 0) {
-        state.method = "winget";
-        log("brave-install: installing Brave with winget");
-        const r = await run("winget", ["install", "--id", "Brave.Brave", "-e", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], log, 10 * 60_000);
-        const found = findBrave();
-        if (found) {
-          state.installedPath = found;
-          log(`brave-install: Brave installed via winget (${found})`);
-          return { ...state, running: false, finishedAt: Date.now() };
-        }
-        log(`brave-install: winget did not produce brave.exe (exit ${r.code}); trying the standalone installer`);
-      } else {
-        log("brave-install: winget not available; using the standalone installer");
-      }
-      // 2) standalone installer
-      state.method = "installer";
-      const dir = path.join(os.tmpdir(), "easylopster-brave-install");
-      await mkdir(dir, { recursive: true });
-      const exe = path.join(dir, "BraveBrowserSetup.exe");
-      await download(STANDALONE_URL, exe, log);
-      log("brave-install: running the Brave installer silently");
-      const r = await run(exe, ["/silent", "/install"], log, 10 * 60_000);
-      // The installer may hand off to a child process; give it a moment to finish.
-      const deadline = Date.now() + 90_000;
-      let found = findBrave();
-      while (!found && Date.now() < deadline) {
-        await new Promise((res) => setTimeout(res, 2000));
-        found = findBrave();
-      }
-      await rm(dir, { recursive: true, force: true }).catch(() => {});
-      if (!found) throw new Error(`Brave installer finished (exit ${r.code}) but brave.exe was not found; install Brave manually from brave.com`);
+      let found: string;
+      if (process.platform === "win32") found = await installWindows(log);
+      else if (process.platform === "darwin") found = await installMac(log);
+      else throw new Error("automatic Brave install is available on Windows and macOS; install Brave with your package manager");
       state.installedPath = found;
       log(`brave-install: Brave installed (${found})`);
     } catch (err) {

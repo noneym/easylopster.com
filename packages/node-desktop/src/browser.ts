@@ -31,13 +31,20 @@ export interface BrowserOptions {
   log: (line: string) => void;
 }
 
+/** A picked "Brave Browser.app" bundle means its executable inside. */
+function resolveBundle(p?: string): string | undefined {
+  if (!p) return p;
+  return p.endsWith(".app") ? path.join(p, "Contents", "MacOS", path.basename(p, ".app")) : p;
+}
+
 export function findBrave(explicit?: string): string | undefined {
   const candidates = [
-    explicit,
+    resolveBundle(explicit),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
     process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
     process.env["PROGRAMFILES(X86)"] && path.join(process.env["PROGRAMFILES(X86)"], "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
     "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    process.env.HOME && path.join(process.env.HOME, "Applications", "Brave Browser.app", "Contents", "MacOS", "Brave Browser"),
     "/usr/bin/brave-browser",
     "/usr/bin/brave",
   ].filter((p): p is string => !!p);

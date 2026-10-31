@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
+import { NodeInstall } from "@/components/app/node-install";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clearAutoApprove, deleteNode, onlineNodeIds, renewPairing, revokeNode } from "../actions";
@@ -64,32 +65,14 @@ export default async function NodeDetailPage({ params }: PageProps<"/dashboard/n
           <h2 className="font-semibold tracking-tight">Pairing code</h2>
           <p className="mt-3 font-mono text-3xl tracking-[0.2em]">{node.pairingCode}</p>
           <p className="mt-1 text-xs text-fg-muted">Valid until {node.pairingExpiresAt!.toISOString().replace("T", " ").slice(0, 16)} UTC. Use it once; the agent then stores its own token.</p>
-          <div className="mt-5 space-y-4 text-sm">
-            <div>
-              <p className="font-medium">Windows: install easylopster Node (tray app)</p>
-              <p className="mt-1 text-fg-muted">
-                Download <code>easylopster-node-setup-*.exe</code> from{" "}
-                <a className="underline" href="https://github.com/noneym/easylopster.com/releases/latest" target="_blank" rel="noreferrer">
-                  GitHub Releases
-                </a>
-                , open it, paste the code above and pick the folder to share. It keeps running in the tray and can start with Windows.
-              </p>
-            </div>
-            <div>
-              <p className="font-medium">Any machine with Node 22+ (Windows, macOS, Linux)</p>
-              <pre className="mt-1 card p-3 overflow-x-auto font-mono text-xs leading-relaxed">{`npx easylopster-node connect ${node.pairingCode} --gateway ${gw} --workspace ~/easylopster`}</pre>
-            </div>
-            <div>
-              <p className="font-medium">Or as a container with its own persistent folder</p>
-              <pre className="mt-1 card p-3 overflow-x-auto font-mono text-xs leading-relaxed">{`docker run -d --name easylopster-node --restart unless-stopped \\
-  -e EASYLOPSTER_GATEWAY=${gw} \\
-  -e EASYLOPSTER_PAIRING_CODE=${node.pairingCode} \\
-  -v easylopster-node:/data \\
-  ghcr.io/noneym/easylopster-node:latest`}</pre>
-            </div>
-            <p className="text-fg-muted">The agent only opens an outbound connection; nothing to expose. --workspace limits what bots can see; commands run in that folder.</p>
-          </div>
+          <p className="mt-4 text-sm text-fg-muted">Install the agent below and paste this code when it asks; the commands already contain it.</p>
         </section>
+      )}
+
+      {pairingLive && (
+        <div className="mb-6">
+          <NodeInstall pairingCode={node.pairingCode} gateway={gw} />
+        </div>
       )}
 
       {node.status === "pending" && !pairingLive && (

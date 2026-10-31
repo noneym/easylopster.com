@@ -57,3 +57,14 @@ await png(tile(16, false), `${d}/tray.png`, 16);
 await png(tile(32, false), `${d}/tray@2x.png`, 32);
 await png(tile(16, false, "#8A867F"), `${d}/tray-off.png`, 16);
 await png(tile(32, false, "#8A867F"), `${d}/tray-off@2x.png`, 32);
+
+// ── macOS: app icon (1024, Big Sur-style inset on a transparent canvas) and menu-bar template images ──
+const macIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><svg x="100" y="100" width="824" height="824" viewBox="0 0 824 824">${tile(824).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}</svg></svg>`;
+await png(macIcon, `${d}/icon-mac.png`, 1024);
+// Template images: black + alpha only; macOS tints them for light/dark menu bars. "off" is the same mark at 45% alpha.
+const tmpl = (alpha) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><g fill="#000000" fill-opacity="${alpha}"><path d="${BUBBLE}"/><path d="${TAIL}"/><path d="${TEETH}"/></g></svg>`;
+await png(tmpl(1), `${d}/trayTemplate.png`, 18);
+await png(tmpl(1), `${d}/trayTemplate@2x.png`, 36);
+await png(tmpl(0.45), `${d}/tray-offTemplate.png`, 18);
+await png(tmpl(0.45), `${d}/tray-offTemplate@2x.png`, 36);
+console.log("wrote macOS icons");

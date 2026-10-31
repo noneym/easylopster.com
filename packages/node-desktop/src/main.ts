@@ -12,10 +12,13 @@ import { DEFAULT_GATEWAY, VERSION, createNodeAgent, defaultConfigPath, defaultWo
 import { BROWSER_CAPS } from "@easylopster/shared/node-protocol";
 import { BrowserController, findBrave } from "./browser";
 import { braveInstallState, installBrave } from "./brave-install";
-import { checkForUpdatesNow, installUpdateNow, setupUpdater, updateState } from "./updater";
+import { checkForUpdatesNow, installUpdateNow, openDownloadPage, setupUpdater, updateState } from "./updater";
 
 const DASHBOARD_URL = "https://easylopster.com/dashboard/nodes";
-const isHidden = process.argv.includes("--hidden");
+const IS_MAC = process.platform === "darwin";
+const LOGIN_LABEL = IS_MAC ? "Open at login" : "Start with Windows";
+// Windows passes --hidden through the Run key; macOS login items cannot carry arguments.
+const hiddenArg = process.argv.includes("--hidden");
 
 interface DesktopSettings {
   autostart: boolean;
@@ -66,6 +69,7 @@ function publicState() {
     configPath,
     logs,
     hostname: os.hostname(),
+    platform: process.platform,
     bravePath: findBrave(settings.bravePath) ?? null,
     browserRunning: anyBrowserRunning(),
     braveInstall: braveInstallState(),
@@ -89,7 +93,7 @@ async function persistSettings() {
 
 function applyAutostart() {
   if (!app.isPackaged) return; // `electron .` in dev would register the electron binary
-  app.setLoginItemSettings({ openAtLogin: settings.autostart, args: ["--hidden"] });
+  app.setLoginItemSettings(IS_MAC ? { openAtLogin: settings.autostart } : { openAtLogin: settings.autostart, args: ["--hidden"] });
 }
 
 // ───────────────────────── browser ─────────────────────────
@@ -237,6 +241,12 @@ const STATE_LABEL: Record<AgentStatus["state"], string> = {
 };
 
 function trayIcon(on: boolean) {
+  if (IS_MAC) {
+    // Template images: macOS tints them for light and dark menu bars.
+    const img = nativeImage.createFromPath(path.join(__dirname, on ? "trayTemplate.png" : "tray-offTemplate.png"));
+    img.setTemplateImage(true);
+    return img;
+  }
   return nativeImage.createFromPath(path.join(__dirname, on ? "tray.png" : "tray-off.png"));
 }
 
@@ -254,11 +264,13 @@ function updateTray() {
       { label: "Open dashboard", click: () => void shell.openExternal(DASHBOARD_URL) },
       { type: "separator" },
       config.token && status.state !== "stopped" ? { label: "Disconnect", click: () => void stopAgent() } : { label: "Connect", enabled: !!config.token, click: () => void startAgent() },
-      { label: "Start with Windows", type: "checkbox", checked: settings.autostart, click: (item) => void setAutostart(item.checked) },
+      { label: LOGIN_LABEL, type: "checkbox", checked: settings.autostart, click: (item) => void setAutostart(item.checked) },
       { label: "Browser control (Brave)", type: "checkbox", checked: settings.browser, click: (item) => void setBrowser(item.checked) },
       ...(anyBrowserRunning() ? [{ label: "Close controlled Brave", click: () => void closeBrowser() }] : []),
       { type: "separator" },
-      ...(updateState().downloaded
+      ...(updateState().manual && updateState().available
+        ? [{ label: `Download update ${updateState().available}…`, click: () => openDownloadPage() }]
+        : updateState().downloaded
         ? [{ label: `Restart to update to ${updateState().downloaded}`, click: () => installUpdateNow() }]
         : [{ label: updateState().checking ? "Checking for updates…" : updateState().available ? `Downloading ${updateState().available}…` : `Check for updates (v${VERSION})`, enabled: !updateState().checking && !updateState().available && app.isPackaged, click: () => checkForUpdatesNow() }]),
       { label: "Quit", click: () => quit() },
@@ -312,6 +324,8 @@ function createWindow() {
 }
 function showWindow() {
   if (!win) createWindow();
+  // A menu-bar app (LSUIElement) is never the active app by itself; bring the window forward.
+  if (IS_MAC) app.focus({ steal: true });
   win!.show();
   win!.focus();
 }
@@ -356,12 +370,9 @@ ipcMain.handle("workspace:choose", async () => {
   return publicState();
 });
 ipcMain.handle("browser:pick", async () => {
-  const r = await dialog.showOpenDialog(win!, {
-    title: "Locate brave.exe",
-    defaultPath: findBrave(settings.bravePath),
-    properties: ["openFile"],
-    filters: [{ name: "Brave", extensions: ["exe"] }],
-  });
+  const r = await dialog.showOpenDialog(win!, IS_MAC
+    ? { title: "Locate Brave Browser.app", defaultPath: "/Applications", properties: ["openFile"], filters: [{ name: "Brave", extensions: ["app"] }] }
+    : { title: "Locate brave.exe", defaultPath: findBrave(settings.bravePath), properties: ["openFile"], filters: [{ name: "Brave", extensions: ["exe"] }] });
   if (r.canceled || !r.filePaths[0]) return publicState();
   settings.bravePath = r.filePaths[0];
   await persistSettings();
@@ -437,7 +448,8 @@ if (!app.requestSingleInstanceLock()) {
     updateTray();
 
     createWindow();
-    if (!isHidden || !config.token) showWindow();
+    const startedHidden = hiddenArg || (IS_MAC && app.getLoginItemSettings().wasOpenedAtLogin);
+    if (!startedHidden || !config.token) showWindow();
 
     log(`easylopster Node ${VERSION} started (config ${configPath})`);
     setupUpdater(log, pushState);

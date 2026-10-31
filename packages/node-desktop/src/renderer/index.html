@@ -92,13 +92,13 @@
       <button id="openBtn">Open folder</button>
       <button id="unpairBtn" class="danger">Unpair</button>
     </div>
-    <p class="hint">Your agent can read and write files only inside the shared folder. Shell commands run with your Windows user; approvals are set per node in the dashboard.</p>
+    <p class="hint">Your agent can read and write files only inside the shared folder. Shell commands run with your user account; approvals are set per node in the dashboard.</p>
   </section>
 
   <section class="card">
     <h2>Settings</h2>
     <div class="row"><span class="k">Name</span><input id="name" type="text" maxlength="80" placeholder="Node name"></div>
-    <label class="check"><input id="autostart" type="checkbox"> Start with Windows (hidden in the tray)</label>
+    <label class="check"><input id="autostart" type="checkbox"> <span id="autostartLabel">Start with Windows (hidden in the tray)</span></label>
     <label class="check"><input id="browser" type="checkbox"> Browser control (Brave)</label>
     <p class="hint" style="margin-top:4px">Lets your bots open pages, read them, click, type and take screenshots in a separate Brave window with its own profile (your own tabs, logins and history are not shared). Turn the browser capabilities on per node in the dashboard; opening pages, clicks and typing can require your approval in chat.</p>
     <div class="row"><span class="k">Brave</span><span class="v" id="vBrave" title=""></span><button id="braveBtn" class="sm">Locate…</button><button id="braveInstallBtn" class="sm hidden">Install Brave</button><button id="braveCloseBtn" class="sm hidden">Close</button></div>
@@ -146,16 +146,18 @@
       $("name").value = s.config.name;
       $("gateway").value = s.config.gateway;
       $("autostart").checked = !!s.settings.autostart;
+      $("autostartLabel").textContent = s.platform === "darwin" ? "Open at login (stays in the menu bar)" : "Start with Windows (hidden in the tray)";
       $("browser").checked = !!s.settings.browser;
     }
     const bi = s.braveInstall || {};
-    $("vBrave").textContent = s.bravePath ? s.bravePath + (s.browserRunning ? " — running" : "") : bi.running ? "installing Brave (" + (bi.method || "starting") + ")…" : bi.error ? "install failed: " + bi.error : "brave.exe not found — it is installed automatically when a bot first needs it, or install now";
+    $("vBrave").textContent = s.bravePath ? s.bravePath + (s.browserRunning ? " — running" : "") : bi.running ? "installing Brave (" + (bi.method || "starting") + ")…" : bi.error ? "install failed: " + bi.error : "Brave not found — it is installed automatically when an agent first needs it, or install now";
     $("vBrave").title = s.bravePath || bi.error || "";
     $("braveInstallBtn").classList.toggle("hidden", !!s.bravePath || !!bi.running);
     $("braveCloseBtn").classList.toggle("hidden", !s.browserRunning);
     const u = s.update || {};
-    $("vUpdate").textContent = u.downloaded ? "v" + u.downloaded + " downloaded — restart to install" : u.available ? "downloading v" + u.available + (u.progress != null ? " " + u.progress + "%" : "") + "…" : u.checking ? "checking…" : u.error ? "check failed: " + u.error : u.lastCheck ? "up to date (v" + s.version + ")" : "v" + s.version + " — checks automatically";
-    $("updateInstallBtn").classList.toggle("hidden", !u.downloaded);
+    $("vUpdate").textContent = u.manual && u.available ? "v" + u.available + " is available — download and install it" : u.downloaded ? "v" + u.downloaded + " downloaded — restart to install" : u.available ? "downloading v" + u.available + (u.progress != null ? " " + u.progress + "%" : "") + "…" : u.checking ? "checking…" : u.error ? "check failed: " + u.error : u.lastCheck ? "up to date (v" + s.version + ")" : "v" + s.version + " — checks automatically";
+    $("updateInstallBtn").classList.toggle("hidden", !(u.downloaded || (u.manual && u.available)));
+    $("updateInstallBtn").textContent = u.manual ? "Download" : "Restart to update";
     $("ver").textContent = "v" + s.version;
     $("host").textContent = s.hostname;
     if (s.logs) { $("logs").textContent = s.logs.join("\n"); scrollLogs(); }
