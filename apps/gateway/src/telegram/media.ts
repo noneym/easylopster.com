@@ -42,15 +42,22 @@ async function download(api: Api, token: string, ref: TgFileRef): Promise<{ buf:
   return { buf, name };
 }
 
-async function transcribe(userId: string, buf: Buffer, name: string): Promise<string | null> {
+/** Speech-to-text key: the account's own OpenAI key when it has one, otherwise the platform's OPENAI_API_KEY. */
+async function transcriptionKey(userId: string): Promise<string | null> {
   const key = await db.providerKey.findFirst({ where: { userId, provider: "openai" } });
-  if (!key) return null;
+  if (key) return decrypt(key.encKey);
+  return process.env.OPENAI_API_KEY?.trim() || null;
+}
+
+async function transcribe(userId: string, buf: Buffer, name: string): Promise<string | null> {
+  const apiKey = await transcriptionKey(userId);
+  if (!apiKey) return null;
   const form = new FormData();
   form.append("file", new Blob([buf]), name);
-  form.append("model", "whisper-1");
+  form.append("model", process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || "whisper-1");
   const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${decrypt(key.encKey)}` },
+    headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
     signal: AbortSignal.timeout(60_000),
   });
@@ -95,7 +102,7 @@ export async function collectInboundMedia(
       if (d) {
         const rel = await save(d.buf, d.name);
         const text = m.video_note ? null : await transcribe(userId, d.buf, d.name).catch(() => null);
-        out.notes.push(text ? `[voice note transcript] ${text}` : `[media:audio saved at ${rel}; transcription unavailable (add an OpenAI key to enable Whisper)]`);
+        out.notes.push(text ? `[voice note transcript] ${text}` : `[media:audio saved at ${rel}; transcription unavailable (no OpenAI key on the account or the platform)]`);
       } else out.notes.push("[media:audio unavailable]");
     }
     if (m.document) {
