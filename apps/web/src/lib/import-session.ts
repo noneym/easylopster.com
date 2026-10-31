@@ -7,6 +7,10 @@ export interface ImportSessionOptions {
   categories: ImportCategory[];
   memoryMode: "append" | "replace";
   heartbeatAutomation: boolean;
+  /** "new" mode: bring the API keys found on the OpenClaw machine (default true) */
+  importKeys?: boolean;
+  /** "new" mode: bring the Telegram bot token from openclaw.json (default true) */
+  importTelegram?: boolean;
 }
 export interface ImportManifest {
   entries: { path: string; size: number; category: ImportCategory }[];

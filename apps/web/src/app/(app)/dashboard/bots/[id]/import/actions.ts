@@ -27,7 +27,13 @@ export async function createImportSession(botId: string | null, options: ImportS
       userId: user.id,
       botId: botId ?? null,
       mode: botId ? "bot" : "new",
-      options: { categories, memoryMode: options.memoryMode === "replace" ? "replace" : "append", heartbeatAutomation: !!options.heartbeatAutomation },
+      options: {
+        categories,
+        memoryMode: options.memoryMode === "replace" ? "replace" : "append",
+        heartbeatAutomation: !!options.heartbeatAutomation,
+        importKeys: options.importKeys !== false,
+        importTelegram: options.importTelegram !== false,
+      },
       expiresAt: new Date(Date.now() + IMPORT_SESSION_TTL_MS),
     },
   });

@@ -43,6 +43,8 @@ export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: str
   const [categories, setCategories] = useState<Set<ImportCategory>>(new Set(ORDER));
   const [memoryMode, setMemoryMode] = useState<"append" | "replace">(hasMemory ? "append" : "replace");
   const [heartbeatAutomation, setHeartbeatAutomation] = useState(true);
+  const [importKeys, setImportKeys] = useState(true);
+  const [importTelegram, setImportTelegram] = useState(true);
   const [session, setSession] = useState<PublicImportSession | null>(initial && (LIVE.has(initial.status) || initial.status === "done" || initial.status === "failed") ? initial : null);
   const [creating, setCreating] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
@@ -72,7 +74,7 @@ export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: str
 
   async function generate() {
     setCreating(true);
-    const opts: ImportSessionOptions = { categories: [...categories], memoryMode, heartbeatAutomation };
+    const opts: ImportSessionOptions = { categories: [...categories], memoryMode, heartbeatAutomation, importKeys, importTelegram };
     const r = await createImportSession(botId, opts).catch((e: Error) => ({ error: e.message }));
     setCreating(false);
     if ("error" in r && r.error) return toast.push("error", r.error);
@@ -114,8 +116,28 @@ export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: str
               : "The command you get next only uploads the categories you pick here; the file list is shown live on this page while it runs."}
           </p>
         </div>
+        {isNew && (
+          <div className="space-y-3">
+            <p className="label">From openclaw.json</p>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={importKeys} onChange={(e) => setImportKeys(e.target.checked)} className="mt-1 size-4 accent-[var(--accent)]" />
+              <span>
+                <span className="font-medium">Import API keys (agent tokens)</span>
+                <span className="block text-sm text-fg-muted">Provider keys from openclaw.json, the usual env variables or OpenClaw's auth profiles are tested and added to your account; the bot uses the one matching its model. Unchecked, the keys never leave the machine and the bot uses a key you already have here.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={importTelegram} onChange={(e) => setImportTelegram(e.target.checked)} className="mt-1 size-4 accent-[var(--accent)]" />
+              <span>
+                <span className="font-medium">Import Telegram token</span>
+                <span className="block text-sm text-fg-muted">The bot token from openclaw.json puts the bot on Telegram here (stop the OpenClaw instance first; two programs cannot receive the same bot's messages). Unchecked, the bot starts as web chat only.</span>
+              </span>
+            </label>
+            <p className="label pt-2">From the workspace</p>
+          </div>
+        )}
         {ORDER.map((c) => (
-          <label key={c} className="flex items-start gap-3 cursor-pointer border-t border-line pt-4 first:border-t-0 first:pt-0">
+          <label key={c} className={`flex items-start gap-3 cursor-pointer border-t border-line pt-4 ${isNew ? "" : "first:border-t-0 first:pt-0"}`}>
             <input
               type="checkbox"
               checked={categories.has(c)}

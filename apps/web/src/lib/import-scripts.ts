@@ -261,6 +261,11 @@ const fmt = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : n >= 1024 
   log(c.bold + "easylopster import" + c.reset + c.dim + "  →  " + API + c.reset);
   log("workspace: " + ws);
   const config = readConfig(ws);
+  // What the owner ticked on the page: keys / Telegram token stay on this machine when unchecked.
+  let prefs = {};
+  try { prefs = (await api("/options")) || {}; } catch (err) { fail(String(err.message || err)); }
+  if (prefs.importKeys === false) { config.keys = {}; config.notes.push("API keys were kept on this machine (unchecked)."); }
+  if (prefs.importTelegram === false) { config.telegramBotToken = ""; config.notes.push("The Telegram token was kept on this machine (unchecked)."); }
   const found = [config.telegramBotToken ? "Telegram token" : null, config.model ? "model " + config.model : null, Object.keys(config.keys).length ? Object.keys(config.keys).length + " API key(s): " + Object.keys(config.keys).join(", ") : null, config.name ? "name " + JSON.stringify(config.name) : null].filter(Boolean);
   log("config: " + (found.length ? found.join(" · ") : "nothing usable found in " + config.configPath));
   const files = walk(ws);

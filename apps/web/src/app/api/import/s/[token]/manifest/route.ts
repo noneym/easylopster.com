@@ -34,8 +34,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   if (s.mode === "new" && !bot) {
     const user = await db.user.findUnique({ where: { id: s.userId } });
     if (!user) return Response.json({ error: "Account not found" }, { status: 404 });
+    const flags = s.options as unknown as { importKeys?: boolean; importTelegram?: boolean };
+    const config = { ...(body.config ?? {}) };
+    if (flags.importKeys === false) {
+      config.keys = {};
+      config.notes = [...(config.notes ?? []), "API keys were not imported (unchecked); the bot uses a key already on your account."];
+    }
+    if (flags.importTelegram === false) {
+      delete config.telegramBotToken;
+      config.notes = [...(config.notes ?? []), "The Telegram token was not imported (unchecked); add one in bot settings when you are ready to move the bot off OpenClaw."];
+    }
     try {
-      created = await createBotFromOpenClaw(user, body.config ?? {}, hostname ? `OpenClaw on ${hostname}` : "Imported from OpenClaw");
+      created = await createBotFromOpenClaw(user, config, hostname ? `OpenClaw on ${hostname}` : "Imported from OpenClaw");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await db.importSession.update({ where: { id: s.id }, data: { status: "failed", error: msg.slice(0, 1000), hostname, workspace } });
