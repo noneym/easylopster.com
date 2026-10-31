@@ -5,12 +5,8 @@
  * optionally, the conversations as JSON. Retention runs after every backup. Restore unpacks a
  * zip back into the workspace (and optionally re-applies the settings).
  */
-import { createRequire } from "node:module";
+import { ZipArchive } from "archiver";
 import AdmZip from "adm-zip";
-
-// archiver ships CommonJS with `export =`; load it through require so the bundle and tsc agree.
-import type { Archiver, ArchiverOptions } from "archiver";
-const archiver = createRequire(import.meta.url)("archiver") as (format: "zip", options?: ArchiverOptions) => Archiver;
 import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -84,7 +80,7 @@ async function exportConversations(botId: string) {
 }
 
 async function buildZip(ws: Workspace, botId: string, botName: string, opts: { includeInbox: boolean; includeConversations: boolean }): Promise<{ buf: Buffer; manifest: BackupManifest }> {
-  const archive = archiver("zip", { zlib: { level: 6 } });
+  const archive = new ZipArchive({ zlib: { level: 6 } });
   const out = new PassThrough();
   const chunks: Buffer[] = [];
   out.on("data", (c: Buffer) => chunks.push(c));
