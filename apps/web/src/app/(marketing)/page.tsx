@@ -1,8 +1,11 @@
 import Link from "next/link";
 import {
   AlarmIcon,
+  ArchiveIcon,
   BrainIcon,
   ChatsCircleIcon,
+  ChatTeardropTextIcon,
+  CloudIcon,
   CubeIcon,
   DesktopIcon,
   FolderSimpleIcon,
@@ -12,6 +15,7 @@ import {
   MagnifyingGlassIcon,
   MoonStarsIcon,
   PlugsConnectedIcon,
+  ListChecksIcon,
   ShieldCheckIcon,
   SparkleIcon,
   TelegramLogoIcon,
@@ -205,7 +209,11 @@ export default function HomePage() {
             { icon: TelegramLogoIcon, title: "Never silent", body: "While the bot works, Telegram and the web chat show every step: which tool, with what, how long, and a ticking clock on the running one." },
             { icon: PlugsConnectedIcon, title: "Background jobs", body: "Long installs, downloads and builds run detached on the node, survive restarts, and the bot checks their logs and kills them when asked." },
             { icon: FolderSimpleIcon, title: "Import from OpenClaw", body: "One command on the OpenClaw machine moves the bot here: token, model, API keys, persona, memory, skills, scripts. You watch it arrive live." },
-            { icon: KeyIcon, title: "Keeps itself current", body: "The Windows tray app updates from GitHub releases on its own and installs Brave when a bot first needs a browser. Models come straight from your provider." },
+            { icon: CloudIcon, title: "Your own storage", body: "Connect your S3, Cloudflare R2, Backblaze B2 or MinIO bucket and every agent gets a shared drive: read, write, copy files from chats, hand out download links. Your data stays in your account." },
+            { icon: ArchiveIcon, title: "Scheduled backups", body: "Daily, weekly or every few hours, each agent's workspace, memory, skills and settings go to your bucket as a zip. Old ones are pruned after N days; restore in one click." },
+            { icon: KeyIcon, title: "Keeps itself current", body: "The Windows tray app updates from GitHub releases on its own and installs Brave when a bot first needs a browser." },
+            { icon: ChatTeardropTextIcon, title: "Web chat or Telegram", body: "Every agent answers in the web chat. Add a BotFather token when you want it on Telegram, switch to another token later, or take it off Telegram again." },
+            { icon: ListChecksIcon, title: "Any model, live lists", body: "Anthropic, OpenAI, Gemini, OpenRouter, DeepSeek or any OpenAI-compatible endpoint. The model list loads from your key as you paste it and refreshes with one click." },
           ].map((f, i) => (
             <Reveal key={f.title} delay={Math.min(i, 5) * 0.04}>
               <div className="flex gap-4">
