@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveButton } from "@/components/app/save-button";
 import { useActionState } from "react";
 import { updateUserAdmin, type AdminFormState } from "../actions";
 
@@ -51,10 +52,9 @@ export function AdminUserForm({
         <p className="help">{self ? "You cannot change your own role." : "Admins see this panel and can sign in as any member."}</p>
       </div>
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <SaveButton pending={pending} state={state}>
           Save
-        </button>
-        {state?.ok && <span className="text-sm text-fg-muted">Saved.</span>}
+        </SaveButton>
         {state?.error && <span className="error mt-0!">{state.error}</span>}
       </div>
     </form>

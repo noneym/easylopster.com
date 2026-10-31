@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveButton } from "@/components/app/save-button";
 import { useActionState, useState } from "react";
 import { createBot, type BotFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
@@ -69,9 +70,9 @@ export function NewBotForm({ keys }: { keys: KeyOpt[] }) {
         </div>
       )}
 
-      <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "Connecting" : "Connect bot"}
-      </button>
+      <SaveButton pending={pending} state={state} pendingLabel="Connecting" savedLabel="Connected" success="Bot connected.">
+        Connect bot
+      </SaveButton>
     </form>
   );
 }

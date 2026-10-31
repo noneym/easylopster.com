@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveButton } from "@/components/app/save-button";
 import { useActionState, useEffect, useState } from "react";
 import { createSecret, type SecretFormState } from "./actions";
 
@@ -39,10 +40,9 @@ export function SecretForm({ initialName = "" }: { initialName?: string }) {
         </label>
         <input id="s-desc" name="description" value={description} onChange={(e) => setDescription(e.target.value)} className="input" placeholder="GitHub personal access token, repo scope" />
       </div>
-      <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "Saving" : "Save secret"}
-      </button>
-      {state?.ok && <p className="text-sm text-fg-muted">Saved. Enable it on a bot's page.</p>}
+      <SaveButton pending={pending} state={state} success="Saved. Enable it on a bot's page.">
+        Save secret
+      </SaveButton>
     </form>
   );
 }

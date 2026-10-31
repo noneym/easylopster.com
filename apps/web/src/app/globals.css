@@ -124,6 +124,16 @@ h3 {
 .help {
   @apply text-xs text-fg-muted mt-2;
 }
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 .error {
   @apply text-xs text-accent-ink mt-2;
 }

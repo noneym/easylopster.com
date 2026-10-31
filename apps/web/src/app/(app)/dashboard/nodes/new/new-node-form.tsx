@@ -1,5 +1,6 @@
 "use client";
 
+import { SaveButton } from "@/components/app/save-button";
 import { useActionState, useState } from "react";
 import { createNode, type NodeFormState } from "../actions";
 
@@ -17,9 +18,9 @@ export function NewNodeForm() {
         {state?.fieldErrors?.name && <p className="error">{state.fieldErrors.name}</p>}
       </div>
       {state?.error && <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "Creating" : "Create and get pairing code"}
-      </button>
+      <SaveButton pending={pending} state={state} pendingLabel="Creating" savedLabel="Created" success="Node created.">
+        Create and get pairing code
+      </SaveButton>
     </form>
   );
 }

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { updateBot, type BotFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
 import { ModelTestButton } from "@/components/app/model-test-button";
+import { SaveButton } from "@/components/app/save-button";
 
 type KeyOpt = { id: string; label: string; defaultModel: string; models: string[]; contexts?: Record<string, number> };
 type BotValues = {
@@ -196,10 +197,9 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
       </section>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? "Saving" : "Save changes"}
-        </button>
-        {state?.ok && <span className="text-sm text-fg-muted">{state.message}</span>}
+        <SaveButton pending={pending} state={state}>
+          Save changes
+        </SaveButton>
         {state?.error && <span className="text-sm text-accent-ink">{state.error}</span>}
       </div>
     </form>

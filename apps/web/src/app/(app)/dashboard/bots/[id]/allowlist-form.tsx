@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { addAllowlistEntry, type BotFormState } from "../actions";
 
 export function AllowlistForm({ botId }: { botId: string }) {
@@ -29,9 +30,9 @@ export function AllowlistForm({ botId }: { botId: string }) {
         </label>
         <input id="al-label" name="label" className="input" placeholder="optional" />
       </div>
-      <button type="submit" disabled={pending} className="btn-secondary">
+      <SaveButton pending={pending} state={state} className="btn-secondary" pendingLabel="Adding" savedLabel="Added" success="Added to the allowlist.">
         Add
-      </button>
+      </SaveButton>
       {(state?.fieldErrors?.tgId || state?.error) && <p className="error sm:col-span-4">{state.fieldErrors?.tgId ?? state.error}</p>}
     </form>
   );

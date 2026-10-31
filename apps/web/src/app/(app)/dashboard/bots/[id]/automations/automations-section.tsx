@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { addHeartbeat, createAutomation, deleteAutomation, runAutomationNow, toggleAutomation, type AutomationFormState } from "./actions";
 
 export type AutomationRow = {
@@ -91,11 +92,10 @@ export function AutomationsSection({ botId, rows, hasHeartbeat, hasOwnerChat }: 
             </label>
           </div>
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={pending} className="btn-primary">
+            <SaveButton pending={pending} state={state} pendingLabel="Creating" savedLabel="Created" success="Created. First run at the next slot.">
               Create
-            </button>
+            </SaveButton>
             {state?.error && <span className="text-sm text-accent-ink">{state.error}</span>}
-            {state?.ok && <span className="text-sm text-fg-muted">Created. First run at the next slot.</span>}
           </div>
         </form>
       )}

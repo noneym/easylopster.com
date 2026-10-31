@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { useFormStatus } from "react-dom";
 import { createMcp, startMcpOAuth, testMcp, updateMcp, type McpFormState } from "./actions";
 
@@ -145,13 +146,13 @@ export function McpForm({ initial }: { initial?: Values }) {
         ) : (
           <>
             {!oauthEditing && (
-              <button type="submit" formAction={testAction} disabled={testing || creating || headers === "__keep__"} className="btn-secondary">
-                {testing ? "Connecting" : "Test connection"}
-              </button>
+              <SaveButton pending={testing} state={test} formAction={testAction} disabled={creating || headers === "__keep__"} className="btn-secondary" pendingLabel="Connecting" savedLabel="Connected" success="Connected.">
+                Test connection
+              </SaveButton>
             )}
-            <button type="submit" formAction={createAction} disabled={creating || testing} className="btn-primary">
-              {creating ? "Saving" : editing ? "Save" : "Add server"}
-            </button>
+            <SaveButton pending={creating} state={create} formAction={createAction} disabled={testing} success={editing ? "Saved." : "Server added."}>
+              {editing ? "Save" : "Add server"}
+            </SaveButton>
           </>
         )}
       </div>

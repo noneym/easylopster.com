@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { createSkill, importSkill, type SkillFormState } from "./actions";
 
 export function NewSkillForm({ botId }: { botId: string }) {
@@ -41,9 +42,9 @@ export function NewSkillForm({ botId }: { botId: string }) {
         </div>
       </div>
       {state?.error && <p className="error">{state.error}</p>}
-      <button type="submit" disabled={pending} className="btn-primary">
-        {pending ? "Creating…" : "Create and edit"}
-      </button>
+      <SaveButton pending={pending} state={state} pendingLabel="Creating" savedLabel="Created" success="Skill created.">
+        Create and edit
+      </SaveButton>
     </form>
   );
 }
@@ -65,10 +66,9 @@ export function ImportSkillForm({ botId }: { botId: string }) {
         <input id="skill-url" name="url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="input font-mono text-sm" placeholder="https://raw.githubusercontent.com/…/SKILL.md" required />
       </div>
       {state?.error && <p className="error">{state.error}</p>}
-      {state?.ok && <p className="text-sm text-fg-muted">Imported. The bot sees it on its next message.</p>}
-      <button type="submit" disabled={pending} className="btn-secondary">
-        {pending ? "Importing…" : "Import"}
-      </button>
+      <SaveButton pending={pending} state={state} className="btn-secondary" pendingLabel="Importing" savedLabel="Imported" success="Imported. The bot sees it on its next message.">
+        Import
+      </SaveButton>
     </form>
   );
 }

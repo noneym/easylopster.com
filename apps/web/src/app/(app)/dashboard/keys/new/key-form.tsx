@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from "@easylopster/shared/providers";
 import { createKey, testKey, type KeyFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
@@ -107,12 +108,12 @@ export function KeyForm() {
       )}
 
       <div className="flex flex-wrap gap-3">
-        <button type="submit" formAction={testAction} disabled={testing || creating} className="btn-secondary">
-          {testing ? "Testing" : "Test key"}
-        </button>
-        <button type="submit" formAction={createAction} disabled={creating || testing} className="btn-primary">
-          {creating ? "Saving" : "Save key"}
-        </button>
+        <SaveButton pending={testing} state={test} formAction={testAction} disabled={creating} className="btn-secondary" pendingLabel="Testing" savedLabel="Works" success="The key works.">
+          Test key
+        </SaveButton>
+        <SaveButton pending={creating} state={create} formAction={createAction} disabled={testing} success="Key saved.">
+          Save key
+        </SaveButton>
       </div>
     </form>
   );

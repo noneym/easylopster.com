@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { changePassword, updateProfile, type FormState } from "./actions";
 import { TimezoneSelect } from "@/components/app/timezone-select";
 
@@ -35,10 +36,9 @@ export function SettingsForm({ name, email, timezone }: { name: string; email: s
           {p?.fieldErrors?.timezone && <p className="error">{p.fieldErrors.timezone}</p>}
         </div>
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={pPending} className="btn-primary">
+          <SaveButton pending={pPending} state={p}>
             Save
-          </button>
-          {p?.ok && <span className="text-sm text-fg-muted">Saved.</span>}
+          </SaveButton>
         </div>
       </form>
 
@@ -59,10 +59,9 @@ export function SettingsForm({ name, email, timezone }: { name: string; email: s
           {w?.fieldErrors?.next ? <p className="error">{w.fieldErrors.next}</p> : <p className="help">At least 8 characters.</p>}
         </div>
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={wPending} className="btn-primary">
+          <SaveButton pending={wPending} state={w} pendingLabel="Updating" savedLabel="Updated" success="Password updated.">
             Change password
-          </button>
-          {w?.ok && <span className="text-sm text-fg-muted">Password updated.</span>}
+          </SaveButton>
         </div>
       </form>
     </>

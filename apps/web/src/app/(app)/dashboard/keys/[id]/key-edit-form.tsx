@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { updateKey, type KeyFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
 import { ModelTestButton } from "@/components/app/model-test-button";
@@ -28,10 +29,9 @@ export function KeyEditForm({ id, label, defaultModel, models }: { id: string; l
         {state?.fieldErrors?.defaultModel && <p className="error">{state.fieldErrors.defaultModel}</p>}
       </div>
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <SaveButton pending={pending} state={state}>
           Save
-        </button>
-        {state?.ok && <span className="text-sm text-fg-muted">{state.message}</span>}
+        </SaveButton>
         {state?.error && <span className="text-sm text-accent-ink">{state.error}</span>}
       </div>
     </form>

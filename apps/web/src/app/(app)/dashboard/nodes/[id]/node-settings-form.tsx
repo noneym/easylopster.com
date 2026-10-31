@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { SaveButton } from "@/components/app/save-button";
 import { updateNode, type NodeFormState } from "../actions";
 
 export function NodeSettingsForm({ node, caps, autoApprove, clearAutoApprove }: { node: { id: string; name: string; execApproval: string }; caps: { id: string; label: string; enabled: boolean }[]; autoApprove: string[]; clearAutoApprove: (cap: string) => Promise<void> }) {
@@ -63,10 +64,9 @@ export function NodeSettingsForm({ node, caps, autoApprove, clearAutoApprove }: 
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className="btn-primary">
+        <SaveButton pending={pending} state={state}>
           Save
-        </button>
-        {state?.ok && <span className="text-sm text-fg-muted">{state.message}</span>}
+        </SaveButton>
         {state?.error && <span className="text-sm text-accent-ink">{state.error}</span>}
       </div>
     </form>
