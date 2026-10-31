@@ -37,7 +37,7 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
   const parsed = z
     .object({
       name: z.string().trim().min(1, "Give the bot a name").max(60),
-      token: z.string().trim().refine(isValidBotToken, "That does not look like a BotFather token (123456789:ABC…)"),
+      token: z.string().trim().refine((t) => !t || isValidBotToken(t), "That does not look like a BotFather token (123456789:ABC…)").optional().or(z.literal("")),
       providerKeyId: z.string().trim().min(1, "Pick an API key"),
       model: z.string().trim().max(200).optional().or(z.literal("")),
     })
@@ -47,6 +47,15 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
 
   const key = await db.providerKey.findFirst({ where: { id: providerKeyId, userId: user.id } });
   if (!key) return { fieldErrors: { providerKeyId: "Key not found" } };
+
+  // No token = web chat only; the bot can be put on Telegram later from its settings.
+  if (!token) {
+    const bot = await db.bot.create({
+      data: { userId: user.id, name, platform: "web", encToken: null, webhookSecret: randomToken(24), providerKeyId: key.id, model: parsed.data.model || key.defaultModel, agentName: name },
+    });
+    revalidatePath("/dashboard/bots");
+    redirect(`/dashboard/bots/${bot.id}/chat?welcome=1`);
+  }
 
   const me = await tg.getMe(token);
   if (!me.ok) return { fieldErrors: { token: `Telegram rejected the token: ${me.description}` } };
@@ -163,7 +172,7 @@ export async function decidePairing(id: string, decision: "approved" | "rejected
       });
     }
   });
-  if (decision === "approved") {
+  if (decision === "approved" && req.bot.encToken) {
     // Mirrors OpenClaw's --notify text.
     await tg.sendMessage(decrypt(req.bot.encToken), req.tgChatId, "✅ Access approved. Send a message to start chatting.");
   }
@@ -212,7 +221,7 @@ export async function setBotStatus(id: string, status: "active" | "paused") {
 export async function resetWebhook(id: string) {
   const user = await requireUser();
   const bot = await db.bot.findFirst({ where: { id, userId: user.id } });
-  if (!bot) return;
+  if (!bot || !bot.encToken) return;
   const token = decrypt(bot.encToken);
   const hook = webhooksEnabled() ? await tg.setWebhook(token, webhookUrl(bot.id, bot.webhookSecret), bot.webhookSecret) : ({ ok: true } as const);
   await tg.setMyCommands(token, BOT_COMMANDS);
@@ -229,7 +238,7 @@ export async function deleteBot(id: string) {
   const user = await requireUser();
   const bot = await db.bot.findFirst({ where: { id, userId: user.id } });
   if (!bot) return;
-  await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
+  if (bot.encToken) await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
   await db.bot.delete({ where: { id } });
   revalidatePath("/dashboard/bots");
   redirect("/dashboard/bots");

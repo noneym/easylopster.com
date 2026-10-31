@@ -201,6 +201,11 @@ export default function HomePage() {
             { icon: ImagesIcon, title: "Media in and out", body: "Photos go to vision models, voice notes are transcribed, documents land in the inbox. Files the bot writes come back as attachments." },
             { icon: ShieldCheckIcon, title: "Approvals and sandbox", body: "Shell commands on your machines ask for Allow / Deny in chat. An optional per-bot Linux sandbox runs the risky stuff in the cloud." },
             { icon: UsersThreeIcon, title: "Groups done right", body: "Mention gating, unaddressed history windows, silent replies, per-group sessions, pairing codes for strangers." },
+            { icon: DesktopIcon, title: "A real browser on your PC", body: "The Windows node drives Brave: snapshots with element refs, clicks, typing, drag and drop, file upload, downloads, cookies, network capture, separate profiles for separate logins." },
+            { icon: TelegramLogoIcon, title: "Never silent", body: "While the bot works, Telegram and the web chat show every step: which tool, with what, how long, and a ticking clock on the running one." },
+            { icon: PlugsConnectedIcon, title: "Background jobs", body: "Long installs, downloads and builds run detached on the node, survive restarts, and the bot checks their logs and kills them when asked." },
+            { icon: FolderSimpleIcon, title: "Import from OpenClaw", body: "One command on the OpenClaw machine moves the bot here: token, model, API keys, persona, memory, skills, scripts. You watch it arrive live." },
+            { icon: KeyIcon, title: "Keeps itself current", body: "The Windows tray app updates from GitHub releases on its own and installs Brave when a bot first needs a browser. Models come straight from your provider." },
           ].map((f, i) => (
             <Reveal key={f.title} delay={Math.min(i, 5) * 0.04}>
               <div className="flex gap-4">

@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { updateBot, type BotFormState } from "../actions";
 import { ModelSelect } from "@/components/app/model-select";
 import { ModelTestButton } from "@/components/app/model-test-button";
+import { RefreshModelsButton } from "@/components/app/refresh-models-button";
+import { refreshKeyModels } from "../../keys/actions";
 import { SaveButton } from "@/components/app/save-button";
 
 type KeyOpt = { id: string; label: string; defaultModel: string; models: string[]; contexts?: Record<string, number> };
@@ -46,6 +48,9 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
   const [keyId, setKeyId] = useState(bot.providerKeyId || keys[0]?.id || "");
   const key = keys.find((k) => k.id === keyId);
   const [model, setModel] = useState(bot.model || key?.defaultModel || "");
+  const [fresh, setFresh] = useState<Record<string, { models: string[]; contexts?: Record<string, number> }>>({});
+  const modelList = fresh[keyId]?.models ?? key?.models ?? [];
+  const contexts = fresh[keyId]?.contexts ?? key?.contexts;
   const fe = state?.fieldErrors ?? {};
 
   return (
@@ -80,8 +85,11 @@ export function BotSettingsForm({ bot, keys }: { bot: BotValues; keys: KeyOpt[] 
             </select>
           </Field>
           <Field label="Model" htmlFor="model" error={fe.model}>
-            <ModelSelect id="model" name="model" models={key?.models ?? []} value={model} onChange={setModel} required contexts={key?.contexts} />
-            <ModelTestButton keyId={keyId} model={model} />
+            <ModelSelect id="model" name="model" models={modelList} value={model} onChange={setModel} required contexts={contexts} />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <RefreshModelsButton load={() => refreshKeyModels(keyId)} onModels={(models, ctx) => setFresh((f) => ({ ...f, [keyId]: { models, contexts: ctx } }))} />
+              <ModelTestButton keyId={keyId} model={model} />
+            </div>
           </Field>
           <Field label="Thinking" htmlFor="thinking" help="Extended reasoning where the model supports it.">
             <select id="thinking" name="thinking" defaultValue={bot.thinking} className="input">

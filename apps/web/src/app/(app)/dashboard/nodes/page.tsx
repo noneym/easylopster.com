@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/app/empty-state";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { limitsFor } from "@/lib/limits";
+import { NodeInstall } from "@/components/app/node-install";
 
 export const metadata = { title: "Nodes" };
 
@@ -23,6 +24,9 @@ export default async function NodesPage() {
           </Link>
         }
       />
+      <div className="mb-6">
+        <NodeInstall gateway={process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? process.env.GATEWAY_WS_URL} />
+      </div>
       {nodes.length === 0 ? (
         <EmptyState
           icon={<DesktopIcon size={24} />}

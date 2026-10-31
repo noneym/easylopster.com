@@ -63,12 +63,12 @@ export function startTelegramPolling(): () => void {
   async function sync() {
     // Dev safety: the database is shared with production, and polling deletes a bot's webhook (see account-scope.ts).
     const bots = await db.bot.findMany({
-      where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" }, ...botScope() },
+      where: { platform: "telegram", status: "active", NOT: { tgBotId: "0" }, encToken: { not: null }, ...botScope() },
       select: { id: true, encToken: true },
     });
     const ids = new Set(bots.map((b) => b.id));
     for (const [id, p] of pollers) if (!ids.has(id)) (p.stop(), pollers.delete(id), log(`stopped bot=${id}`));
-    for (const b of bots) if (!pollers.has(b.id)) pollers.set(b.id, await pollBot(b.id, decrypt(b.encToken)));
+    for (const b of bots) if (!pollers.has(b.id) && b.encToken) pollers.set(b.id, await pollBot(b.id, decrypt(b.encToken)));
   }
 
   void sync();

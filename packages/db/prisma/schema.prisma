@@ -96,12 +96,12 @@ model Bot {
   id       String @id @default(cuid())
   userId   String
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform String @default("telegram") // telegram (more later)
+  platform String @default("telegram") // telegram | web (web chat only, no Telegram token)
   name     String
   status   String @default("active") // active | paused | error
 
-  // Telegram
-  encToken      String  @db.Text
+  // Telegram (null for web-only bots)
+  encToken      String? @db.Text
   tgBotId       String? // numeric id from getMe, as string
   tgUsername    String?
   webhookSecret String // random path segment + X-Telegram-Bot-Api-Secret-Token
@@ -163,6 +163,7 @@ model Bot {
   approvals     ToolApproval[]
   secrets       BotSecret[]
   automations   Automation[]
+  imports       ImportSession[]
   intents       Intent[]
 
   @@unique([platform, tgBotId])
@@ -407,6 +408,43 @@ model BotSecret {
   createdAt DateTime @default(now())
 
   @@id([botId, secretId])
+}
+
+// ───────────────────────────── OpenClaw import sessions ─────────────────────────────
+
+/// One "run a command on the OpenClaw machine" import: the page creates it, the uploader script
+/// drives it with the token, the page watches it. Short-lived (1 hour) and single use.
+model ImportSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  /// Null until the import creates the bot (mode "new"); set from the start in mode "bot".
+  botId     String?
+  bot       Bot?     @relation(fields: [botId], references: [id], onDelete: Cascade)
+  /// bot = into an existing bot; new = the script's openclaw.json creates the bot (token, model, keys)
+  mode      String   @default("bot")
+  /// waiting | scanning | uploading | done | failed | expired
+  status    String   @default("waiting")
+  /// { categories, memoryMode, heartbeatAutomation }
+  options   Json
+  /// Set by the script: machine and workspace it found
+  hostname  String?
+  workspace String?  @db.VarChar(1024)
+  /// { entries: [{path,size,category}], skipped: [{path,size,reason}] }
+  manifest  Json?
+  /// { filesTotal, filesDone, bytesTotal, bytesDone }
+  progress  Json?
+  /// { written: [{path,category}], skipped: [{path,reason}], heartbeat }
+  result    Json?
+  /// mode "new": what was created from openclaw.json { botId, name, platform, tgUsername, model, keys: [{provider,label,status,detail}], notes }
+  created   Json?
+  error     String?  @db.VarChar(1024)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+
+  @@index([botId])
+  @@index([expiresAt])
 }
 
 // ───────────────────────────── Automations (cron / heartbeat) ─────────────────────────────

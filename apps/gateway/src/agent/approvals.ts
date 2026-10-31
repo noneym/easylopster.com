@@ -114,7 +114,7 @@ async function notifyOutcome(id: string, outcome: ApprovalDecision) {
   if (!row) return;
   const ch = row.channel as { kind: string; chatId?: string; messageId?: number | null } | null;
   const label = outcome === "approved" ? "✅ Allowed" : outcome === "denied" ? "⛔ Denied" : "⌛ Expired";
-  if (ch?.kind === "telegram" && ch.chatId && ch.messageId) {
+  if (ch?.kind === "telegram" && ch.chatId && ch.messageId && row.bot.encToken) {
     const { decrypt } = await import("@easylopster/shared/crypto");
     const api = new TelegramSender(decrypt(row.bot.encToken)).api;
     await api.editMessageText(ch.chatId, ch.messageId, `${label}\n\n${row.target}\n<pre>${escapeHtml(String((row.args as { command?: string }).command ?? row.toolName).slice(0, 1500))}</pre>`, { parse_mode: "HTML" }).catch(() => {});

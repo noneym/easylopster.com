@@ -6,6 +6,36 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-31
+
+### Added
+- Import from OpenClaw with one command: New bot → "Import from OpenClaw" (or a bot's Import page →
+  "Run a command on the OpenClaw machine") gives a one-hour, single-use command
+  (`curl -fsSL https://easylopster.com/import.sh | bash -s -- TOKEN`, PowerShell variant for
+  Windows). On the OpenClaw machine it reads openclaw.json (bot name, Telegram token, model, API
+  keys from the config, env vars or legacy auth profiles) and the workspace, creates the bot here
+  with its keys, and uploads persona, memory, heartbeat, skills and scripts in batches. The page
+  follows it live: step bar (command ready → connected from <host> → uploading → done), per-category
+  bars, every file with written/skipped state, what was created (bot, @username, model, keys) and
+  notes on anything that needs a manual step. Served scripts: /import.sh, /import.ps1, /import.mjs.
+- Web-only bots: the Telegram token is optional when creating a bot; without one the bot lives in
+  the web chat and a token can be added later. The new-bot form explains how to get a token from
+  @BotFather step by step.
+- "Refresh model list" wherever a key is used: the new-key form asks the provider for its models as
+  soon as a key is pasted (and on demand), the key page and bot settings reload the list from the
+  provider with one click.
+- Nodes pages explain what a node is and how to install the agent: direct download of the current
+  Windows tray installer, the npx one-liner and the Docker command, on the nodes list, the new-node
+  page and a node's page.
+- Dashboard forms give visible feedback everywhere: spinner while saving, a "Saved" tick, a toast
+  for success and errors, and a scroll to the first field error.
+- Telegram voice notes are transcribed with the platform's `OPENAI_API_KEY` when the account has no
+  OpenAI key of its own (`OPENAI_TRANSCRIBE_MODEL` picks the model).
+- Landing page lists the browser, live status, background jobs, import and self-update features.
+
+### Fixed
+- Settings page hydration mismatch from time-zone offsets rendered on the server.
+
 ## [1.8.0] - 2026-10-29
 
 ### Added
@@ -304,7 +334,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/noneym/easylopster.com/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/noneym/easylopster.com/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/noneym/easylopster.com/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/noneym/easylopster.com/compare/v1.5.1...v1.6.0

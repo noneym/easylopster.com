@@ -40,7 +40,7 @@ export default async function BotsPage() {
             <li key={b.id} className="flex items-center justify-between px-5 py-4">
               <div className="min-w-0">
                 <p className="font-medium truncate">{b.name}</p>
-                <p className="text-sm text-fg-muted truncate">{b.tgUsername ? `@${b.tgUsername}` : "not verified"} · {b.model ?? "no model"}</p>
+                <p className="text-sm text-fg-muted truncate">{b.tgUsername ? `@${b.tgUsername}` : b.platform === "web" ? "web chat only" : "not verified"} · {b.model ?? "no model"}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Link href={`/dashboard/bots/${b.id}/chat`} className="btn-primary h-9">

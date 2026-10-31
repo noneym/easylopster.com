@@ -337,6 +337,7 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
   const m = update.message ?? update.edited_message;
   if (!m) return; // membership changes etc.
   if (!m.from || m.from.is_bot) return;
+  if (!bot.encToken) return; // web-only bot: nothing to answer on Telegram
   const token = decrypt(bot.encToken);
   const tg = new TelegramSender(token);
   const chatType: "direct" | "group" = m.chat.type === "private" ? "direct" : "group";
@@ -465,6 +466,7 @@ export async function handleTelegramUpdate(bot: BotFull, update: TgUpdate, sessi
 
 /** Inline-button taps: exec approvals (`apr:<id>:allow|deny`). Only allowlisted senders may decide. */
 async function handleCallback(bot: BotFull, cq: TgCallbackQuery): Promise<void> {
+  if (!bot.encToken) return;
   const tg = new TelegramSender(decrypt(bot.encToken));
   const answer = (text: string) => tg.api.answerCallbackQuery(cq.id, { text, show_alert: false }).catch(() => {});
   const data = cq.data ?? "";

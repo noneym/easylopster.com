@@ -72,6 +72,45 @@ export async function createKey(_prev: KeyFormState, formData: FormData): Promis
   redirect(`/dashboard/keys/${row.id}`);
 }
 
+/** Model list for a key that is being typed (not saved yet): the create form calls this as you type. */
+export async function probeModels(provider: string, apiKey: string, baseUrl?: string): Promise<{ models?: string[]; contexts?: Record<string, number>; error?: string }> {
+  await requireUser();
+  if (!isProviderId(provider)) return { error: "Unknown provider" };
+  const key = apiKey.trim();
+  if (key.length < 8) return { error: "Paste the API key first" };
+  const r = await testProviderKey(provider, key, baseUrl?.trim() || PROVIDERS[provider].defaultBaseUrl);
+  if (!r.ok) return { error: r.message };
+  return { models: r.models ?? [], contexts: contextsOf(r.modelsMeta) };
+}
+
+/** Re-asks the provider for a saved key's models, stores the list and returns it for the picker. */
+export async function refreshKeyModels(id: string): Promise<{ models?: string[]; contexts?: Record<string, number>; error?: string }> {
+  const user = await requireUser();
+  const row = await db.providerKey.findFirst({ where: { id, userId: user.id } });
+  if (!row) return { error: "Key not found" };
+  const r = await testProviderKey(row.provider as never, decrypt(row.encKey), row.baseUrl);
+  await db.providerKey.update({
+    where: { id },
+    data: {
+      lastTestedAt: new Date(),
+      lastTestOk: r.ok,
+      lastTestMsg: r.message.slice(0, 500),
+      ...(r.ok && r.models?.length ? { modelsCache: r.models.slice(0, 500) } : {}),
+      ...(r.ok && r.modelsMeta && Object.keys(r.modelsMeta).length ? { modelsMeta: r.modelsMeta } : {}),
+    },
+  });
+  revalidatePath(`/dashboard/keys/${id}`);
+  if (!r.ok) return { error: r.message };
+  return { models: r.models ?? [], contexts: contextsOf(r.modelsMeta) };
+}
+
+function contextsOf(meta?: Record<string, { context?: number }>): Record<string, number> | undefined {
+  if (!meta) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(meta)) if (v?.context) out[k] = v.context;
+  return Object.keys(out).length ? out : undefined;
+}
+
 export async function retestKey(id: string) {
   const user = await requireUser();
   const row = await db.providerKey.findFirst({ where: { id, userId: user.id } });

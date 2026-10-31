@@ -28,7 +28,7 @@ export async function runAutomationJob(bot: BotFull, automationId: string, nodes
   }
 
   const isolated = a.sessionTarget === "isolated";
-  const tg = bot.ownerTgChatId && bot.tgBotId !== "0" ? new TelegramSender(decrypt(bot.encToken)) : null;
+  const tg = bot.ownerTgChatId && bot.tgBotId !== "0" && bot.encToken ? new TelegramSender(decrypt(bot.encToken)) : null;
   // Main session = the owner's Telegram DM when the bot has one, otherwise the owner's web chat.
   const mainKey = tg ? `dm:${bot.id}:main` : `web:${bot.id}:${bot.userId}`;
   const sessionKey = isolated ? `auto:${bot.id}:${a.id}` : mainKey;

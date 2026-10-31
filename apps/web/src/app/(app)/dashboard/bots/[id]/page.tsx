@@ -48,7 +48,7 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
     <>
       <PageHeader
         title={bot.name}
-        description={`${bot.tgUsername ? `@${bot.tgUsername}` : "unverified"} · ${bot.status}${bot.webhookSetAt ? " · webhook set" : " · webhook missing"}`}
+        description={bot.platform === "web" ? `web chat only · ${bot.status}` : `${bot.tgUsername ? `@${bot.tgUsername}` : "unverified"} · ${bot.status}${bot.webhookSetAt ? " · webhook set" : " · webhook missing"}`}
         action={
           <div className="flex gap-2">
             <Link href={`/dashboard/bots/${bot.id}/conversations`} className="btn-secondary">
