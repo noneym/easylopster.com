@@ -24,6 +24,11 @@ export default async function NewBotPage() {
   return (
     <>
       <PageHeader title="New bot" description="Create one from scratch, or move an existing OpenClaw bot here with one command on its machine." />
+      {keys.length === 0 && !limitReached && (
+        <div className="mb-6 rounded-md border border-line bg-bg-sunk px-4 py-3 text-sm text-fg-muted">
+          No API key on the account yet. You can still import from OpenClaw (its keys come along when ticked); a bot from scratch needs a key first.
+        </div>
+      )}
       {limitReached ? (
         <div className="card p-6 max-w-xl">
           <p className="font-medium">Bot limit reached</p>
@@ -62,7 +67,19 @@ export default async function NewBotPage() {
                 Run one command on the machine where OpenClaw runs. It reads <span className="font-mono">openclaw.json</span> (bot name, Telegram token, model, API keys) and the workspace (persona, memory, skills, scripts), creates the bot here and shows every step on this page.
               </p>
             </div>
-            <RemoteImport botId={null} origin={origin} hasMemory={false} initial={lastImport} />
+            <RemoteImport
+              botId={null}
+              origin={origin}
+              hasMemory={false}
+              initial={lastImport}
+              keys={keys.map((k) => ({
+                id: k.id,
+                provider: k.provider,
+                label: `${k.label} (${PROVIDERS[k.provider as ProviderId]?.label ?? k.provider})`,
+                defaultModel: k.defaultModel,
+                models: (Array.isArray(k.modelsCache) ? (k.modelsCache as string[]) : null) ?? PROVIDERS[k.provider as ProviderId]?.models.map((m) => m.id) ?? [],
+              }))}
+            />
           </section>
         </div>
       )}

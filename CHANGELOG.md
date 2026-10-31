@@ -6,6 +6,21 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-31
+
+### Added
+- Import from OpenClaw: "Import API keys (agent tokens)" and "Import Telegram token" checkboxes;
+  unchecked values never leave the machine. When the import ends without a usable key or without
+  Telegram, a "Finish setup" panel on the same page asks for the API key + model (OpenClaw's model
+  preselected when the key has it) and the Telegram token. A missing key no longer aborts the import.
+- Bots → Manage → Telegram: connect a web-only bot to Telegram, switch an existing bot to another
+  BotFather token (webhook and command menu re-registered, the old webhook dropped), or disconnect
+  Telegram and keep the bot in the web chat.
+- The uploader parses real openclaw.json files (JSON5: comments, trailing commas, unquoted keys).
+
+### Fixed
+- A session cookie whose session was deleted looped between /login and /dashboard.
+
 ## [1.9.0] - 2026-10-31
 
 ### Added
@@ -334,7 +349,8 @@ web, bring your own LLM key, connect Telegram bots, MCP servers and your own mac
   for web and gateway, diff-based migrations, `QUEUE_PREFIX` for sharing Redis between
   environments, GitHub Actions for releases and the node image.
 
-[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/noneym/easylopster.com/compare/v1.9.1...HEAD
+[1.9.1]: https://github.com/noneym/easylopster.com/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/noneym/easylopster.com/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/noneym/easylopster.com/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/noneym/easylopster.com/compare/v1.6.0...v1.7.0

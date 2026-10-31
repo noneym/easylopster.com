@@ -7,6 +7,7 @@ import { CATEGORY_LABELS, type ImportCategory } from "@/lib/openclaw-import";
 import type { ImportSessionOptions, PublicImportSession } from "@/lib/import-session";
 import { useToast } from "@/components/app/toaster";
 import { createImportSession } from "./actions";
+import { FinishSetup, type KeyChoice } from "./finish-setup";
 
 const ORDER: ImportCategory[] = ["persona", "memory", "heartbeat", "skills", "other"];
 const fmt = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
@@ -37,7 +38,7 @@ function CopyButton({ text }: { text: string }) {
  * `botId` null the script's openclaw.json also creates the bot (Telegram token, model, API keys).
  * The page watches the upload arrive, step by step, with the files grouped by category.
  */
-export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: string | null; origin: string; hasMemory: boolean; initial: PublicImportSession | null }) {
+export function RemoteImport({ botId, origin, hasMemory, initial, keys = [] }: { botId: string | null; origin: string; hasMemory: boolean; initial: PublicImportSession | null; keys?: KeyChoice[] }) {
   const toast = useToast();
   const isNew = botId === null;
   const [categories, setCategories] = useState<Set<ImportCategory>>(new Set(ORDER));
@@ -356,6 +357,9 @@ export function RemoteImport({ botId, origin, hasMemory, initial }: { botId: str
           </div>
         )}
 
+        {status === "done" && isNew && created && targetBot && (created.needsKey || created.platform === "web") && (
+          <FinishSetup botId={targetBot} keys={keys} needsKey={!!created.needsKey} wantedModel={created.wantedModel ?? created.model ?? null} tgUsername={created.platform === "telegram" ? (created.tgUsername ?? null) : null} />
+        )}
         {status === "done" && (
           <div className="border-t border-line pt-4 space-y-3">
             <p className="inline-flex items-center gap-2 font-[650]">

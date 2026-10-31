@@ -211,6 +211,66 @@ export async function removeAllowlistEntry(id: string) {
   revalidatePath(`/dashboard/bots/${row.botId}`);
 }
 
+/** Connects a bot to Telegram (or switches it to another bot token): verify, dedupe, webhook, commands. */
+export async function setTelegramToken(botId: string, token: string): Promise<{ username?: string | null; webhookWarning?: string; error?: string }> {
+  const user = await requireUser();
+  const bot = await db.bot.findFirst({ where: { id: botId, userId: user.id } });
+  if (!bot) return { error: "Bot not found" };
+  const t = token.trim();
+  if (!isValidBotToken(t)) return { error: "That does not look like a BotFather token (123456789:ABC…)" };
+  const me = await tg.getMe(t);
+  if (!me.ok) return { error: `Telegram rejected the token: ${me.description}` };
+  const dup = await db.bot.findFirst({ where: { platform: "telegram", tgBotId: String(me.result.id), NOT: { id: bot.id } } });
+  if (dup) return { error: `@${me.result.username ?? me.result.id} is already connected to another bot in easylopster.` };
+  // Leaving an old token behind: drop its webhook so Telegram stops calling us for it.
+  if (bot.encToken && bot.tgBotId !== String(me.result.id)) await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
+  const secret = bot.webhookSecret || randomToken(24);
+  const hook = webhooksEnabled() ? await tg.setWebhook(t, webhookUrl(bot.id, secret), secret) : ({ ok: true } as const);
+  await tg.setMyCommands(t, BOT_COMMANDS).catch(() => {});
+  await db.bot.update({
+    where: { id: bot.id },
+    data: {
+      platform: "telegram",
+      encToken: encrypt(t),
+      tgBotId: String(me.result.id),
+      tgUsername: me.result.username ?? null,
+      webhookSecret: secret,
+      webhookSetAt: hook.ok && webhooksEnabled() ? new Date() : null,
+      lastError: hook.ok ? null : `setWebhook failed: ${hook.description}`.slice(0, 1000),
+      lastErrorAt: hook.ok ? null : new Date(),
+      status: bot.status === "error" && hook.ok ? "active" : bot.status,
+    },
+  });
+  revalidatePath(`/dashboard/bots/${bot.id}`);
+  revalidatePath("/dashboard/bots");
+  return { username: me.result.username ?? null, webhookWarning: hook.ok ? undefined : `Webhook not set (${hook.description}); use "Re-register webhook" on the bot page.` };
+}
+
+/** Takes a bot off Telegram; it keeps working in the web chat. */
+export async function removeTelegramToken(botId: string): Promise<{ ok?: boolean; error?: string }> {
+  const user = await requireUser();
+  const bot = await db.bot.findFirst({ where: { id: botId, userId: user.id } });
+  if (!bot) return { error: "Bot not found" };
+  if (bot.encToken) await tg.deleteWebhook(decrypt(bot.encToken)).catch(() => {});
+  await db.bot.update({ where: { id: bot.id }, data: { platform: "web", encToken: null, tgBotId: null, tgUsername: null, webhookSetAt: null, lastError: null, lastErrorAt: null, status: bot.status === "error" ? "active" : bot.status } });
+  revalidatePath(`/dashboard/bots/${bot.id}`);
+  revalidatePath("/dashboard/bots");
+  return { ok: true };
+}
+
+/** Assigns the API key and model (import's "Finish setup"). */
+export async function setBotModel(botId: string, providerKeyId: string, model: string): Promise<{ ok?: boolean; error?: string }> {
+  const user = await requireUser();
+  const key = await db.providerKey.findFirst({ where: { id: providerKeyId, userId: user.id } });
+  if (!key) return { error: "Key not found" };
+  const m = model.trim();
+  if (!m) return { error: "Pick a model" };
+  const r = await db.bot.updateMany({ where: { id: botId, userId: user.id }, data: { providerKeyId: key.id, model: m } });
+  if (!r.count) return { error: "Bot not found" };
+  revalidatePath(`/dashboard/bots/${botId}`);
+  return { ok: true };
+}
+
 export async function setBotStatus(id: string, status: "active" | "paused") {
   const user = await requireUser();
   await db.bot.updateMany({ where: { id, userId: user.id }, data: { status, lastError: status === "active" ? null : undefined } });

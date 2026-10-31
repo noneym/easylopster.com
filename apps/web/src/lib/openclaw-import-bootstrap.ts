@@ -31,6 +31,10 @@ export interface CreatedSummary {
   model?: string | null;
   keys: { provider: string; label: string; status: "created" | "existing" | "failed" | "unsupported"; detail?: string }[];
   notes: string[];
+  /** No usable key: the bot was created without one; "Finish setup" asks for it. */
+  needsKey?: boolean;
+  /** The "provider/model" OpenClaw used, for the Finish setup picker. */
+  wantedModel?: string | null;
 }
 
 /** OpenClaw provider ids → ours. Unknown providers with a base URL become openai-compatible keys. */
@@ -136,12 +140,17 @@ export async function createBotFromOpenClaw(user: { id: string; limitBots?: numb
       } else notes.push(`OpenClaw used ${sel}, but no ${PROVIDERS[m.provider].label} key was found; pick a model in bot settings.`);
     } else notes.push(`OpenClaw used ${sel}; that provider is not available here, pick a model in bot settings.`);
   }
+  let needsKey = false;
   if (!providerKeyId) {
     const first = keyByProvider.values().next().value as string | undefined;
     const any = first ? await db.providerKey.findUnique({ where: { id: first } }) : await db.providerKey.findFirst({ where: { userId: user.id }, orderBy: { createdAt: "asc" } });
-    if (!any) throw new Error("No API key was found in the OpenClaw config and your account has none yet; add an API key first, then run the import again.");
-    providerKeyId = any.id;
-    model = model ?? any.defaultModel;
+    if (any) {
+      providerKeyId = any.id;
+      model = model ?? any.defaultModel;
+    } else {
+      needsKey = true;
+      notes.push("No usable API key yet: the bot was created without one. Add a key and pick the model in \"Finish setup\" below (or in bot settings).");
+    }
   }
 
   // 3) Bot: Telegram when the token works, otherwise web chat only.
@@ -192,5 +201,5 @@ export async function createBotFromOpenClaw(user: { id: string; limitBots?: numb
     if (!hook.ok) notes.push(`Telegram webhook could not be set: ${hook.description}. Stop the OpenClaw instance (it may still hold the token) and press "Reset webhook" on the bot page.`);
     else notes.push("Stop the OpenClaw instance if it is still running: two programs cannot receive the same bot's messages.");
   }
-  return { botId: bot.id, name, platform, tgUsername, model, keys, notes };
+  return { botId: bot.id, name, platform, tgUsername, model, keys, notes, needsKey, wantedModel: sel || null };
 }

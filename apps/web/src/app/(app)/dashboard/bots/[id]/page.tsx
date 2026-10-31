@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { decidePairing, deleteBot, removeAllowlistEntry, resetWebhook, setBotStatus } from "../actions";
 import { BotSettingsForm } from "./bot-settings-form";
+import { TelegramTokenForm } from "./telegram-token-form";
 import { AllowlistForm } from "./allowlist-form";
 import { BotMcpForm } from "./bot-mcp-form";
 import { BotNodesForm } from "./bot-nodes-form";
@@ -120,6 +121,9 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
+          <section className="card p-6">
+            <TelegramTokenForm botId={bot.id} tgUsername={bot.platform === "telegram" ? bot.tgUsername : null} />
+          </section>
           <BotSettingsForm
             bot={{
               id: bot.id,
@@ -257,11 +261,13 @@ export default async function BotDetailPage({ params }: PageProps<"/dashboard/bo
                   </button>
                 </form>
               )}
-              <form action={resetWebhook.bind(null, bot.id)}>
-                <button type="submit" className="btn-ghost h-8">
-                  Re-register webhook
-                </button>
-              </form>
+              {bot.platform === "telegram" && (
+                <form action={resetWebhook.bind(null, bot.id)}>
+                  <button type="submit" className="btn-ghost h-8">
+                    Re-register webhook
+                  </button>
+                </form>
+              )}
             </div>
           </div>
           <form action={deleteBot.bind(null, bot.id)} className="card p-5">
