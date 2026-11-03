@@ -15,6 +15,13 @@ All notable changes to easylopster are documented here. The format follows
   migration `20261103123935_provider_key_rotated_at`). Rotations done while an admin impersonates a
   member are logged with `[admin]`.
 
+### Fixed
+- Connecting a Telegram bot no longer blames a valid token when the call to Telegram times out. A
+  timeout or network failure used to show "Telegram rejected the token: This operation was aborted";
+  it now says "Could not reach Telegram (timeout), try again", and only a 401/404 from Telegram is
+  reported as a rejected token. Telegram setup calls from the dashboard now allow 15 seconds per
+  attempt and retry once when Telegram could not be reached.
+
 ## [1.11.0] - 2026-10-31
 
 ### Added

@@ -3,7 +3,7 @@ import { PROVIDERS, isProviderId, type ProviderId } from "@easylopster/shared/pr
 import { db } from "@/lib/db";
 import { limitsFor } from "@/lib/limits";
 import { testProviderKey } from "@/lib/provider-test";
-import { BOT_COMMANDS, isValidBotToken, tg } from "@/lib/telegram";
+import { BOT_COMMANDS, isValidBotToken, tg, tokenErrorText } from "@/lib/telegram";
 
 /**
  * "Import from OpenClaw" into a NEW bot: the uploader script reads openclaw.json (and the usual
@@ -163,7 +163,7 @@ export async function createBotFromOpenClaw(user: { id: string; limitBots?: numb
     if (!isValidBotToken(token)) notes.push("The Telegram token in openclaw.json does not look like a BotFather token; the bot was created for web chat only. Add the token in bot settings.");
     else {
       const me = await tg.getMe(token);
-      if (!me.ok) notes.push(`Telegram rejected the token from openclaw.json (${me.description}); the bot was created for web chat only.`);
+      if (!me.ok) notes.push(`Could not verify the Telegram token from openclaw.json (${tokenErrorText(me)}); the bot was created for web chat only. Add the token in bot settings.`);
       else {
         const dup = await db.bot.findFirst({ where: { platform: "telegram", tgBotId: String(me.result.id) } });
         if (dup) notes.push(`@${me.result.username ?? me.result.id} is already connected to a bot here; this import created a web-only bot instead.`);

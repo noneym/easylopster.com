@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { gatewayFetch } from "@/lib/gateway";
 import { requireUser } from "@/lib/auth";
 import { limitsFor } from "@/lib/limits";
-import { BOT_COMMANDS, isValidBotToken, tg } from "@/lib/telegram";
+import { BOT_COMMANDS, isValidBotToken, tg, tokenErrorText } from "@/lib/telegram";
 
 export type BotFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; message?: string } | undefined;
 
@@ -58,7 +58,7 @@ export async function createBot(_prev: BotFormState, formData: FormData): Promis
   }
 
   const me = await tg.getMe(token);
-  if (!me.ok) return { fieldErrors: { token: `Telegram rejected the token: ${me.description}` } };
+  if (!me.ok) return { fieldErrors: { token: tokenErrorText(me) } };
 
   const existing = await db.bot.findFirst({ where: { platform: "telegram", tgBotId: String(me.result.id) } });
   if (existing) return { fieldErrors: { token: "This bot is already connected to an account" } };
@@ -219,7 +219,7 @@ export async function setTelegramToken(botId: string, token: string): Promise<{ 
   const t = token.trim();
   if (!isValidBotToken(t)) return { error: "That does not look like a BotFather token (123456789:ABC…)" };
   const me = await tg.getMe(t);
-  if (!me.ok) return { error: `Telegram rejected the token: ${me.description}` };
+  if (!me.ok) return { error: tokenErrorText(me) };
   const dup = await db.bot.findFirst({ where: { platform: "telegram", tgBotId: String(me.result.id), NOT: { id: bot.id } } });
   if (dup) return { error: `@${me.result.username ?? me.result.id} is already connected to another bot in easylopster.` };
   // Leaving an old token behind: drop its webhook so Telegram stops calling us for it.

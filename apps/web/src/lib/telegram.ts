@@ -11,25 +11,50 @@ export interface TgUser {
   can_read_all_group_messages?: boolean;
 }
 
-async function call<T>(token: string, method: string, body?: Record<string, unknown>): Promise<{ ok: true; result: T } | { ok: false; description: string; error_code?: number }> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 12_000);
+export type TgResult<T> = { ok: true; result: T } | { ok: false; description: string; error_code?: number; network?: true };
+
+const ATTEMPT_TIMEOUT_MS = 15_000;
+
+/** One Bot API request. `network` marks failures where Telegram never answered (timeout, DNS, connection reset). */
+async function attempt<T>(token: string, method: string, body?: Record<string, unknown>): Promise<TgResult<T>> {
+  let res: Response;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
+      signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
       cache: "no-store",
     });
+  } catch (err) {
+    const e = err as Error & { cause?: { code?: string } };
+    const timedOut = e.name === "TimeoutError" || e.name === "AbortError";
+    return { ok: false, network: true, description: timedOut ? "timeout" : (e.cause?.code ?? e.message) };
+  }
+  try {
     const json = (await res.json()) as { ok: boolean; result?: T; description?: string; error_code?: number };
     if (json.ok && json.result !== undefined) return { ok: true, result: json.result };
-    return { ok: false, description: json.description ?? `HTTP ${res.status}`, error_code: json.error_code };
+    return { ok: false, description: json.description ?? `HTTP ${res.status}`, error_code: json.error_code ?? res.status };
   } catch (err) {
-    return { ok: false, description: err instanceof Error ? err.message : String(err) };
-  } finally {
-    clearTimeout(t);
+    // Body cut off (timeout mid-read) or a non-JSON page from a proxy: Telegram's answer never arrived intact.
+    const e = err as Error;
+    if (e.name === "TimeoutError" || e.name === "AbortError") return { ok: false, network: true, description: "timeout" };
+    return { ok: false, description: `HTTP ${res.status}`, error_code: res.status };
   }
+}
+
+/** Retries once when Telegram could not be reached; a real answer (401 etc.) is returned as is. */
+async function call<T>(token: string, method: string, body?: Record<string, unknown>): Promise<TgResult<T>> {
+  const first = await attempt<T>(token, method, body);
+  if (first.ok || !first.network) return first;
+  return attempt<T>(token, method, body);
+}
+
+/** User-facing text for a failed getMe: only a 401/404 from Telegram means the token itself is bad. */
+export function tokenErrorText(r: { description: string; error_code?: number; network?: true }) {
+  if (r.network) return r.description === "timeout" ? "Could not reach Telegram (timeout), try again" : `Could not reach Telegram (${r.description}), try again`;
+  if (r.error_code === 401 || r.error_code === 404) return `Telegram rejected the token: ${r.description}`;
+  return `Telegram returned an error (${r.description}), try again`;
 }
 
 export const tg = {
