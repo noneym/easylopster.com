@@ -19,12 +19,8 @@ All notable changes to easylopster are documented here. The format follows
 - Connecting a Telegram bot no longer blames a valid token when the call to Telegram times out. A
   timeout or network failure used to show "Telegram rejected the token: This operation was aborted";
   it now says "Could not reach Telegram (timeout), try again", and only a 401/404 from Telegram is
-  reported as a rejected token.
-- Telegram setup calls from the dashboard (verify token, webhook, commands) timed out on production:
-  the web container's `fetch` hung reaching api.telegram.org while the gateway on the same server
-  worked. When `fetch` gets no answer within 10 seconds, the call is now retried over Node's `https`
-  pinned to IPv4 (15 seconds), and the web log records the outcome and the DNS answers
-  (`[telegram] …`).
+  reported as a rejected token. Telegram setup calls from the dashboard now allow 15 seconds per
+  attempt and retry once when Telegram could not be reached.
 
 ## [1.11.0] - 2026-10-31
 
