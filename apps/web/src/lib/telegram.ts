@@ -1,4 +1,6 @@
 import "server-only";
+import { lookup } from "node:dns/promises";
+import { request } from "node:https";
 
 /** Thin Telegram Bot API client for setup-time calls (getMe, webhook). Runtime messaging lives in the gateway. */
 
@@ -13,7 +15,8 @@ export interface TgUser {
 
 export type TgResult<T> = { ok: true; result: T } | { ok: false; description: string; error_code?: number; network?: true };
 
-const ATTEMPT_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = 10_000;
+const IPV4_TIMEOUT_MS = 15_000;
 
 /** One Bot API request. `network` marks failures where Telegram never answered (timeout, DNS, connection reset). */
 async function attempt<T>(token: string, method: string, body?: Record<string, unknown>): Promise<TgResult<T>> {
@@ -23,7 +26,7 @@ async function attempt<T>(token: string, method: string, body?: Record<string, u
       method: "POST",
       headers: { "content-type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       cache: "no-store",
     });
   } catch (err) {
@@ -43,11 +46,44 @@ async function attempt<T>(token: string, method: string, body?: Record<string, u
   }
 }
 
-/** Retries once when Telegram could not be reached; a real answer (401 etc.) is returned as is. */
+/**
+ * Same request over node:https pinned to IPv4. In some Docker networks the AAAA record of
+ * api.telegram.org resolves but IPv6 has no route, so fetch (undici) hangs until the timeout.
+ */
+function attemptIpv4<T>(token: string, method: string, body?: Record<string, unknown>): Promise<TgResult<T>> {
+  const payload = body ? JSON.stringify(body) : "";
+  return new Promise((resolve) => {
+    const req = request(
+      { host: "api.telegram.org", path: `/bot${token}/${method}`, method: "POST", family: 4, timeout: IPV4_TIMEOUT_MS, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } },
+      (res) => {
+        let raw = "";
+        res.setEncoding("utf8");
+        res.on("data", (c: string) => (raw += c));
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(raw) as { ok: boolean; result?: T; description?: string; error_code?: number };
+            if (json.ok && json.result !== undefined) resolve({ ok: true, result: json.result });
+            else resolve({ ok: false, description: json.description ?? `HTTP ${res.statusCode}`, error_code: json.error_code ?? res.statusCode });
+          } catch {
+            resolve({ ok: false, description: `HTTP ${res.statusCode}`, error_code: res.statusCode });
+          }
+        });
+      },
+    );
+    req.on("timeout", () => req.destroy(Object.assign(new Error("timeout"), { code: "timeout" })));
+    req.on("error", (err: Error & { code?: string }) => resolve({ ok: false, network: true, description: err.code ?? err.message }));
+    req.end(payload);
+  });
+}
+
+/** Falls back to IPv4 over node:https when fetch could not reach Telegram; a real answer (401 etc.) is returned as is. */
 async function call<T>(token: string, method: string, body?: Record<string, unknown>): Promise<TgResult<T>> {
   const first = await attempt<T>(token, method, body);
   if (first.ok || !first.network) return first;
-  return attempt<T>(token, method, body);
+  const second = await attemptIpv4<T>(token, method, body);
+  const dns = await lookup("api.telegram.org", { all: true }).then((a) => a.map((x) => x.address).join(","), (e: Error) => e.message);
+  console.warn(`[telegram] ${method}: fetch failed (${first.description}); IPv4 retry ${second.ok || !second.network ? "reached Telegram" : `failed (${second.description})`}; dns=${dns}`);
+  return second;
 }
 
 /** User-facing text for a failed getMe: only a 401/404 from Telegram means the token itself is bad. */
