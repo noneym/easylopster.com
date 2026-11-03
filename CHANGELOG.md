@@ -6,6 +6,15 @@ All notable changes to easylopster are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- API keys: "Change key" on a key's page replaces the secret in place. The new key is tested against
+  the provider first and only saved (encrypted) when the test passes; on failure the old key stays and
+  the provider's error is shown. The key keeps its id, so every bot on it switches to the new secret on
+  its next message with no re-linking. The model list and context sizes are refreshed from the test,
+  the page shows the new last 4 characters and when the key was last rotated (`ProviderKey.rotatedAt`,
+  migration `20261103123935_provider_key_rotated_at`). Rotations done while an admin impersonates a
+  member are logged with `[admin]`.
+
 ## [1.11.0] - 2026-10-31
 
 ### Added

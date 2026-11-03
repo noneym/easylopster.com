@@ -5,8 +5,20 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteKey, retestKey } from "../actions";
 import { KeyEditForm } from "./key-edit-form";
+import { KeyRotateForm } from "./key-rotate-form";
 
 export const metadata = { title: "API key" };
+
+function rotatedLabel(at: Date | null): string {
+  if (!at) return "Never rotated";
+  const mins = Math.round((Date.now() - at.getTime()) / 60_000);
+  if (mins < 1) return "Rotated just now";
+  if (mins < 60) return `Rotated ${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `Rotated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `Rotated ${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 export default async function KeyDetailPage({ params }: PageProps<"/dashboard/keys/[id]">) {
   const user = await requireUser();
@@ -53,6 +65,7 @@ export default async function KeyDetailPage({ params }: PageProps<"/dashboard/ke
               </ul>
             )}
           </div>
+          <KeyRotateForm id={key.id} rotated={rotatedLabel(key.rotatedAt)} />
           <form action={deleteKey.bind(null, key.id)} className="card p-5">
             <p className="text-sm text-fg-muted">Danger</p>
             <p className="mt-1 text-sm">Deleting the key stops every bot that uses it until you assign another one.</p>

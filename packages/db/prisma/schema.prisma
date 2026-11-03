@@ -83,6 +83,8 @@ model ProviderKey {
   modelsCache  Json?
   /// Per-model metadata reported by the provider on the last test: { "<id>": { context: 256000 } }
   modelsMeta   Json?
+  /// Set when the secret was replaced in place ("Change key" on the key page); null = never rotated
+  rotatedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

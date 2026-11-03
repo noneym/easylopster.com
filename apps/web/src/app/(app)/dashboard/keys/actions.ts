@@ -6,7 +6,7 @@ import { z } from "zod";
 import { encrypt, decrypt, maskSecret } from "@easylopster/shared/crypto";
 import { PROVIDERS, isProviderId } from "@easylopster/shared/providers";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { getImpersonator, requireUser } from "@/lib/auth";
 import { testProviderKey } from "@/lib/provider-test";
 
 export type KeyFormState =
@@ -141,6 +141,49 @@ export async function updateKey(_prev: KeyFormState, formData: FormData): Promis
   revalidatePath(`/dashboard/keys/${id}`);
   revalidatePath("/dashboard/keys");
   return { ok: true, message: "Saved." };
+}
+
+/**
+ * Replaces the secret of a saved key in place (same row id, so every bot on it keeps working).
+ * The new key must pass the provider test first; on failure the old key stays untouched.
+ */
+export async function rotateKey(_prev: KeyFormState, formData: FormData): Promise<KeyFormState> {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const parsed = z.object({ apiKey: z.string().trim().min(1, "Paste the new API key").max(4000) }).safeParse({ apiKey: formData.get("apiKey") ?? "" });
+  if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error) };
+  const { apiKey } = parsed.data;
+  const row = await db.providerKey.findFirst({ where: { id, userId: user.id } });
+  if (!row) return { error: "Key not found" };
+  if (decrypt(row.encKey) === apiKey) return { fieldErrors: { apiKey: "That is the key already saved here" } };
+
+  const test = await testProviderKey(row.provider as never, apiKey, row.baseUrl);
+  if (!test.ok) return { error: `Key not changed: ${test.message}` };
+
+  const last4 = maskSecret(apiKey).slice(-4);
+  const now = new Date();
+  await db.providerKey.update({
+    where: { id },
+    data: {
+      encKey: encrypt(apiKey),
+      keyLast4: last4,
+      rotatedAt: now,
+      lastTestedAt: now,
+      lastTestOk: true,
+      lastTestMsg: test.message.slice(0, 500),
+      ...(test.models?.length ? { modelsCache: test.models.slice(0, 500) } : {}),
+      ...(test.modelsMeta && Object.keys(test.modelsMeta).length ? { modelsMeta: test.modelsMeta } : {}),
+    },
+  });
+  const impersonator = await getImpersonator();
+  if (impersonator) console.log(`[admin] ${impersonator.email} (as ${user.email}) rotated provider key ${id} (${row.provider}, ...${row.keyLast4} -> ...${last4})`);
+  revalidatePath(`/dashboard/keys/${id}`);
+  revalidatePath("/dashboard/keys");
+  const modelGone = test.models?.length && !test.models.includes(row.defaultModel);
+  return {
+    ok: true,
+    message: `Key changed. Now using the key ending in ${last4}.${modelGone ? ` Note: the new key does not list ${row.defaultModel}; pick another default model.` : ""}`,
+  };
 }
 
 export async function deleteKey(id: string) {
